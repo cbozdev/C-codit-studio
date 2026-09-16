@@ -17,8 +17,58 @@ const newPackName = document.getElementById("new-pack-name");
 const newPackCredits = document.getElementById("new-pack-credits");
 const newPackPrice = document.getElementById("new-pack-price");
 
+const adjustModal = document.getElementById("adjust-modal");
+const closeAdjustBtn = document.getElementById("close-adjust-btn");
+const adjustUserEmail = document.getElementById("adjust-user-email");
+const adjustForm = document.getElementById("adjust-form");
+const adjustAmount = document.getElementById("adjust-amount");
+const adjustNote = document.getElementById("adjust-note");
+const adjustStatus = document.getElementById("adjust-status");
+let adjustTargetUserId = null;
+
 const usersTableBody = document.querySelector("#users-table tbody");
 const transactionsTableBody = document.querySelector("#transactions-table tbody");
+const recentTableBody = document.querySelector("#recent-table tbody");
+
+const adminNav = document.getElementById("admin-nav");
+const panelTitle = document.getElementById("panel-title");
+const adminEmailEl = document.getElementById("admin-email");
+const panelLabels = {
+  dashboard: "Dashboard",
+  pricing: "Pricing",
+  packs: "Top-up packs",
+  users: "Users",
+  transactions: "Transactions",
+};
+
+adminNav.addEventListener("click", (e) => {
+  const btn = e.target.closest(".admin-nav-item");
+  if (!btn) return;
+  const panel = btn.dataset.panel;
+  adminNav.querySelectorAll(".admin-nav-item").forEach((b) => b.classList.toggle("active", b === btn));
+  document.querySelectorAll(".admin-panel").forEach((p) => (p.hidden = p.dataset.panel !== panel));
+  panelTitle.textContent = panelLabels[panel] || panel;
+});
+
+const statUsers = document.getElementById("stat-users");
+const statRevenue = document.getElementById("stat-revenue");
+const statCredits = document.getElementById("stat-credits");
+const statPacks = document.getElementById("stat-packs");
+
+function renderTransactionRows(transactions) {
+  return transactions
+    .map(
+      (t) => `
+      <tr>
+        <td${t.note ? ` title="${t.note.replace(/"/g, "&quot;")}"` : ""}>${t.type}</td>
+        <td>${t.credits}</td>
+        <td>${t.amount_ngn ? "₦" + t.amount_ngn.toLocaleString() : "—"}</td>
+        <td>${t.status}</td>
+        <td>${new Date(t.created_at).toLocaleString()}</td>
+      </tr>`
+    )
+    .join("");
+}
 
 const toastEl = document.getElementById("toast");
 let toastTimer = null;
@@ -91,6 +141,7 @@ async function loadPacks() {
     return;
   }
   packs.forEach((pack) => packListEl.appendChild(packRow(pack)));
+  statPacks.textContent = packs.filter((p) => p.active).length;
 }
 
 packListEl.addEventListener("click", async (e) => {
@@ -144,30 +195,77 @@ async function loadOverview() {
   if (!res.ok) return;
 
   usersTableBody.innerHTML = body.users
-    .map(
-      (u) => `
+    .map((u) => {
+      const balance = u.wallets?.[0]?.balance_credits ?? u.wallets?.balance_credits ?? "—";
+      return `
       <tr>
         <td>${u.email}</td>
         <td>${u.role}</td>
-        <td>${u.wallets?.[0]?.balance_credits ?? u.wallets?.balance_credits ?? "—"}</td>
+        <td>${balance}</td>
         <td>${new Date(u.created_at).toLocaleDateString()}</td>
-      </tr>`
-    )
+        <td><button type="button" class="btn btn-ghost btn-sm" data-adjust-id="${u.id}" data-adjust-email="${u.email}">Adjust</button></td>
+      </tr>`;
+    })
     .join("");
 
-  transactionsTableBody.innerHTML = body.transactions
-    .map(
-      (t) => `
-      <tr>
-        <td>${t.type}</td>
-        <td>${t.credits}</td>
-        <td>${t.amount_ngn ? "₦" + t.amount_ngn.toLocaleString() : "—"}</td>
-        <td>${t.status}</td>
-        <td>${new Date(t.created_at).toLocaleString()}</td>
-      </tr>`
-    )
-    .join("");
+  transactionsTableBody.innerHTML = renderTransactionRows(body.transactions);
+  recentTableBody.innerHTML = renderTransactionRows(body.transactions.slice(0, 10));
+
+  const revenue = body.transactions
+    .filter((t) => t.type === "topup" && t.status === "completed")
+    .reduce((sum, t) => sum + (t.amount_ngn || 0), 0);
+  const creditsInCirculation = body.users.reduce(
+    (sum, u) => sum + Number(u.wallets?.[0]?.balance_credits ?? u.wallets?.balance_credits ?? 0),
+    0
+  );
+  statUsers.textContent = body.users.length;
+  statRevenue.textContent = "₦" + revenue.toLocaleString();
+  statCredits.textContent = creditsInCirculation.toLocaleString();
 }
+
+usersTableBody.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-adjust-id]");
+  if (!btn) return;
+  adjustTargetUserId = btn.dataset.adjustId;
+  adjustUserEmail.textContent = btn.dataset.adjustEmail;
+  adjustAmount.value = "";
+  adjustNote.value = "";
+  adjustStatus.textContent = "";
+  adjustStatus.classList.remove("status-error", "status-active");
+  adjustModal.hidden = false;
+});
+
+closeAdjustBtn.addEventListener("click", () => (adjustModal.hidden = true));
+adjustModal.addEventListener("click", (e) => {
+  if (e.target === adjustModal) adjustModal.hidden = true;
+});
+
+adjustForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const amount = Number(adjustAmount.value);
+  if (!Number.isInteger(amount) || amount === 0) {
+    adjustStatus.textContent = "Enter a non-zero whole number.";
+    adjustStatus.classList.add("status-error");
+    return;
+  }
+  adjustStatus.textContent = "Applying...";
+  adjustStatus.classList.remove("status-error", "status-active");
+  try {
+    const res = await authedFetch(`/api/admin/users/${adjustTargetUserId}/adjust-balance`, {
+      method: "POST",
+      body: JSON.stringify({ amount, note: adjustNote.value.trim() }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error);
+    adjustStatus.textContent = `Done — new balance: ${body.balance}.`;
+    adjustStatus.classList.add("status-active");
+    await loadOverview();
+    setTimeout(() => (adjustModal.hidden = true), 900);
+  } catch (err) {
+    adjustStatus.textContent = err.message;
+    adjustStatus.classList.add("status-error");
+  }
+});
 
 async function boot() {
   if (!isSupabaseConfigured) {
@@ -188,6 +286,7 @@ async function boot() {
   }
 
   accessToken = session.access_token;
+  adminEmailEl.textContent = session.user.email;
   gateScreen.hidden = true;
   adminScreen.hidden = false;
 
