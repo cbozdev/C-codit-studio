@@ -6,10 +6,6 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": "http://localhost:3001",
-      "/socket.io": {
-        target: "http://localhost:3001",
-        ws: true,
-      },
     },
   },
   build: {
@@ -17,6 +13,7 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, "index.html"),
         obs: resolve(import.meta.dirname, "obs.html"),
+        admin: resolve(import.meta.dirname, "admin.html"),
       },
     },
   },
