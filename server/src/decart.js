@@ -26,7 +26,7 @@ export function isDecartConfigured() {
  * DECART_API_KEY. The token is scoped to the Lucy 2.5 realtime model and to
  * this deployment's origin.
  */
-export async function mintClientToken(origin) {
+export async function mintClientToken(origin, { maxSessionDuration = 1800 } = {}) {
   const client = getDecartClient();
   if (!client) {
     const err = new Error(
@@ -48,13 +48,15 @@ export async function mintClientToken(origin) {
   // permanently on its next ordinary reconnect with a confusing "Invalid API
   // key" error. 3600 is the max allowed. maxSessionDuration is a separate,
   // per-session cap enforced by Decart's servers regardless of token
-  // lifetime — kept shorter than expiresIn as a cost-safety limit, since
-  // Lucy 2.5 bills per second of active generation.
+  // lifetime — for a billed producer session this is set to exactly how
+  // many seconds the user's wallet balance can afford, so Decart itself
+  // hard-stops the stream once that's exhausted, independent of anything
+  // the client does or doesn't report back to us.
   const token = await client.tokens.create({
     expiresIn: 3600,
     allowedModels: [MODEL_ID],
     constraints: {
-      realtime: { maxSessionDuration: 1800 },
+      realtime: { maxSessionDuration },
     },
   });
 
