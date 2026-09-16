@@ -8,18 +8,50 @@
   </head>
   <body>
     <div id="app">
-      <header class="topbar">
+      <section id="auth-screen" class="auth-screen">
+        <div class="auth-card">
+          <div class="brand">
+            <span class="brand-mark">C</span>
+            <h1>C Studio</h1>
+          </div>
+          <p class="hint">Sign in to start streaming.</p>
+          <form id="auth-form">
+            <label class="field">
+              <span>Email</span>
+              <input type="email" id="auth-email" required autocomplete="email" />
+            </label>
+            <label class="field">
+              <span>Password</span>
+              <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" />
+            </label>
+            <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-lg">Sign in</button>
+            <p id="auth-error" class="hint status-text status-error" hidden></p>
+          </form>
+          <button type="button" id="auth-toggle-mode" class="link-btn">Need an account? Sign up</button>
+        </div>
+      </section>
+
+      <header class="topbar" id="topbar" hidden>
         <div class="brand">
           <span class="brand-mark">C</span>
           <h1>C Studio</h1>
         </div>
-        <div class="header-status" id="header-status">
-          <span class="dot"></span>
-          <span id="header-status-text">Idle — not streaming</span>
+        <div class="header-right">
+          <div class="header-status" id="header-status">
+            <span class="dot"></span>
+            <span id="header-status-text">Idle — not streaming</span>
+          </div>
+          <div class="wallet-chip">
+            <span id="wallet-balance">0</span>
+            <span class="hint-inline">credits</span>
+            <button type="button" id="topup-btn" class="btn btn-ghost btn-sm">Top up</button>
+          </div>
+          <a id="admin-link" href="/admin.html" class="link-btn" hidden>Admin</a>
+          <button type="button" id="sign-out-btn" class="btn btn-ghost btn-sm">Sign out</button>
         </div>
       </header>
 
-      <main class="studio-layout">
+      <main class="studio-layout" id="studio-screen" hidden>
         <section class="preview-row">
           <div class="preview-card">
             <div class="preview-card-header">
@@ -143,6 +175,17 @@
           </aside>
         </section>
       </main>
+
+      <div id="topup-modal" class="modal-overlay" hidden>
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>Top up credits</h3>
+            <button type="button" id="close-topup-btn" class="icon-btn" aria-label="Close">✕</button>
+          </div>
+          <div id="pack-list" class="pack-list"></div>
+          <p id="topup-status" class="hint status-text"></p>
+        </div>
+      </div>
 
       <div id="toast" class="toast" hidden></div>
     </div>
