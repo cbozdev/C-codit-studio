@@ -1,6 +1,7 @@
 import express from "express";
 import { requireAuth, requireAdmin } from "./authMiddleware.js";
 import { getSupabaseAdmin } from "./supabase.js";
+import { adjustBalance, recordTransaction } from "./wallet.js";
 
 export const adminRouter = express.Router();
 adminRouter.use(requireAuth, requireAdmin);
@@ -71,6 +72,32 @@ adminRouter.delete("/packs/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
+// Manually credits or debits a user's wallet (support refunds, goodwill
+// credits, debiting abuse) — always atomic (same RPC billing uses) and
+// always logged as a transaction, tagged with which admin made the change.
+adminRouter.post("/users/:id/adjust-balance", async (req, res) => {
+  const { amount, note } = req.body || {};
+  const value = Number(amount);
+  if (!Number.isInteger(value) || value === 0) {
+    return res.status(400).json({ error: "amount must be a non-zero whole number of credits." });
+  }
+
+  try {
+    const newBalance = await adjustBalance(req.params.id, value);
+    await recordTransaction({
+      userId: req.params.id,
+      type: "admin_adjustment",
+      credits: value,
+      status: "completed",
+      note: `[by ${req.user.email}]${note ? " " + note : ""}`,
+    });
+    res.json({ ok: true, balance: newBalance });
+  } catch (err) {
+    console.error("admin adjust-balance error", err);
+    res.status(500).json({ error: "Could not adjust balance." });
+  }
+});
+
 adminRouter.get("/overview", async (_req, res) => {
   const supabase = getSupabaseAdmin();
   const [{ data: users, error: usersErr }, { data: transactions, error: txErr }] = await Promise.all([
@@ -81,7 +108,7 @@ adminRouter.get("/overview", async (_req, res) => {
       .limit(200),
     supabase
       .from("transactions")
-      .select("id, user_id, type, credits, amount_ngn, status, created_at")
+      .select("id, user_id, type, credits, amount_ngn, status, note, created_at")
       .order("created_at", { ascending: false })
       .limit(200),
   ]);
