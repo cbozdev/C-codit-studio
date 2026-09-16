@@ -7,6 +7,11 @@ import cors from "cors";
 
 import { mintClientToken, isDecartConfigured } from "./decart.js";
 import { setCurrentSession, clearCurrentSession, getCurrentSession } from "./streamSession.js";
+import { isSupabaseConfigured } from "./supabase.js";
+import { isKorapayConfigured } from "./korapay.js";
+import { streamRouter } from "./streamRoutes.js";
+import { walletRouter, korapayWebhookRouter } from "./walletRoutes.js";
+import { adminRouter } from "./adminRoutes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3001;
@@ -27,17 +32,30 @@ app.use(
     },
   })
 );
+
 app.use(express.json());
+app.use("/api/webhooks/korapay", korapayWebhookRouter);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, decartConfigured: isDecartConfigured() });
+  res.json({
+    ok: true,
+    decartConfigured: isDecartConfigured(),
+    supabaseConfigured: isSupabaseConfigured(),
+    korapayConfigured: isKorapayConfigured(),
+  });
 });
 
-// Mints a short-lived Decart client token for the browser. The permanent
-// DECART_API_KEY never leaves this server. Used by both the Studio page
-// (producer) and the OBS output page (viewer).
+// Mints a short-lived Decart client token. Only used by the OBS output page
+// now (a pure viewer, subscribing to an already-running producer session) —
+// the Studio page gets its token from POST /api/stream/start instead, which
+// ties minting to an authenticated, billed session. Gating this on "a
+// session is currently live" closes off the endpoint as a free way to mint
+// Decart credentials against our account with no session backing them.
 app.post("/api/decart-token", async (req, res) => {
   try {
+    if (!getCurrentSession().active) {
+      return res.status(403).json({ error: "No stream is currently live." });
+    }
     const token = await mintClientToken(req.headers.origin);
     res.json(token);
   } catch (err) {
@@ -68,6 +86,10 @@ app.get("/api/stream-session", (_req, res) => {
   res.json(getCurrentSession());
 });
 
+app.use("/api/stream", streamRouter);
+app.use("/api/wallet", walletRouter);
+app.use("/api/admin", adminRouter);
+
 // In production the client is pre-built (npm run build) and served directly
 // from this same process/origin — no separate frontend host needed. In
 // local dev the Vite dev server handles this instead (and proxies /api/*
@@ -82,5 +104,11 @@ app.listen(PORT, () => {
     console.warn(
       "DECART_API_KEY is not set — AI Effects (Lucy 2.5) will be disabled until you add it to server/.env"
     );
+  }
+  if (!isSupabaseConfigured()) {
+    console.warn("SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not set — accounts and wallets will not work.");
+  }
+  if (!isKorapayConfigured()) {
+    console.warn("KORAPAY_SECRET_KEY not set — top-ups will not work until you add sandbox keys.");
   }
 });
