@@ -4,73 +4,149 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>C Studio — Admin</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect x=%221%22 y=%221%22 width=%2222%22 height=%2222%22 rx=%224%22 fill=%22%230b0c0f%22 stroke=%22%2333363f%22/><text x=%2212%22 y=%2216.5%22 font-family=%22monospace%22 font-size=%2212%22 font-weight=%22700%22 fill=%22%238b8e96%22 text-anchor=%22middle%22>C</text></svg>" />
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
   </head>
   <body>
     <div id="app">
       <section id="gate-screen" class="auth-screen">
         <div class="auth-card">
-          <div class="brand"><span class="brand-mark">C</span><h1>C Studio Admin</h1></div>
+          <div class="brand">
+            <img src="/logo.svg" alt="" class="brand-mark" width="28" height="28" />
+            <h1>C Studio Admin</h1>
+          </div>
           <p id="gate-message" class="hint">Checking access…</p>
           <a href="/" class="link-btn">← Back to Studio</a>
         </div>
       </section>
 
-      <div id="admin-screen" hidden>
-        <header class="topbar">
-          <div class="brand">
-            <span class="brand-mark">C</span>
-            <h1>C Studio Admin</h1>
+      <div id="admin-screen" class="admin-shell" hidden>
+        <aside class="admin-sidebar">
+          <div class="brand admin-sidebar-brand">
+            <img src="/logo.svg" alt="" class="brand-mark" width="24" height="24" />
+            <h1>C Studio</h1>
           </div>
-          <div class="header-right">
-            <a href="/" class="link-btn">← Studio</a>
+          <nav class="admin-nav" id="admin-nav">
+            <button type="button" class="admin-nav-item active" data-panel="dashboard">Dashboard</button>
+            <button type="button" class="admin-nav-item" data-panel="pricing">Pricing</button>
+            <button type="button" class="admin-nav-item" data-panel="packs">Top-up packs</button>
+            <button type="button" class="admin-nav-item" data-panel="users">Users</button>
+            <button type="button" class="admin-nav-item" data-panel="transactions">Transactions</button>
+          </nav>
+          <a href="/" class="link-btn admin-sidebar-back">← Back to Studio</a>
+        </aside>
+
+        <main class="admin-main">
+          <header class="admin-topbar">
+            <h2 id="panel-title">Dashboard</h2>
+            <span id="admin-email" class="hint-inline"></span>
+          </header>
+
+          <div class="admin-content">
+            <section class="admin-panel" data-panel="dashboard">
+              <div class="stat-grid">
+                <div class="stat-card">
+                  <span class="stat-label">Total users</span>
+                  <span class="stat-value" id="stat-users">—</span>
+                </div>
+                <div class="stat-card">
+                  <span class="stat-label">Revenue (completed)</span>
+                  <span class="stat-value" id="stat-revenue">—</span>
+                </div>
+                <div class="stat-card">
+                  <span class="stat-label">Credits in circulation</span>
+                  <span class="stat-value" id="stat-credits">—</span>
+                </div>
+                <div class="stat-card">
+                  <span class="stat-label">Active packs</span>
+                  <span class="stat-value" id="stat-packs">—</span>
+                </div>
+              </div>
+
+              <div class="side-card">
+                <h3>Recent activity</h3>
+                <div class="table-wrap">
+                  <table class="admin-table" id="recent-table">
+                    <thead><tr><th>Type</th><th>Credits</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <section class="admin-panel" data-panel="pricing" hidden>
+              <div class="side-card">
+                <h3>Streaming rate</h3>
+                <label class="field">
+                  <span>Credits charged per second of streaming</span>
+                  <input type="number" id="credits-per-second" min="0.01" step="0.01" />
+                </label>
+                <button type="button" id="save-pricing-btn" class="btn btn-primary btn-sm">Save pricing</button>
+                <p id="pricing-status" class="hint status-text"></p>
+              </div>
+            </section>
+
+            <section class="admin-panel" data-panel="packs" hidden>
+              <div class="side-card">
+                <h3>Top-up packs</h3>
+                <div id="admin-pack-list" class="pack-list"></div>
+
+                <form id="new-pack-form" class="new-pack-form">
+                  <label class="field"><span>Name</span><input type="text" id="new-pack-name" required /></label>
+                  <label class="field"><span>Credits</span><input type="number" id="new-pack-credits" min="1" required /></label>
+                  <label class="field"><span>Price (₦)</span><input type="number" id="new-pack-price" min="1" required /></label>
+                  <button type="submit" class="btn btn-ghost btn-sm">Add pack</button>
+                </form>
+                <p id="pack-status" class="hint status-text"></p>
+              </div>
+            </section>
+
+            <section class="admin-panel" data-panel="users" hidden>
+              <div class="side-card">
+                <h3>Users</h3>
+                <div class="table-wrap">
+                  <table class="admin-table" id="users-table">
+                    <thead><tr><th>Email</th><th>Role</th><th>Balance</th><th>Joined</th><th></th></tr></thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <section class="admin-panel" data-panel="transactions" hidden>
+              <div class="side-card">
+                <h3>All transactions</h3>
+                <div class="table-wrap">
+                  <table class="admin-table" id="transactions-table">
+                    <thead><tr><th>Type</th><th>Credits</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
           </div>
-        </header>
-
-        <main class="studio-layout">
-          <section class="side-card">
-            <h3>Pricing</h3>
-            <label class="field">
-              <span>Credits charged per second of streaming</span>
-              <input type="number" id="credits-per-second" min="0.01" step="0.01" />
-            </label>
-            <button type="button" id="save-pricing-btn" class="btn btn-primary btn-sm">Save pricing</button>
-            <p id="pricing-status" class="hint status-text"></p>
-          </section>
-
-          <section class="side-card">
-            <h3>Top-up packs</h3>
-            <div id="admin-pack-list" class="pack-list"></div>
-
-            <form id="new-pack-form" class="new-pack-form">
-              <label class="field"><span>Name</span><input type="text" id="new-pack-name" required /></label>
-              <label class="field"><span>Credits</span><input type="number" id="new-pack-credits" min="1" required /></label>
-              <label class="field"><span>Price (₦)</span><input type="number" id="new-pack-price" min="1" required /></label>
-              <button type="submit" class="btn btn-ghost btn-sm">Add pack</button>
-            </form>
-            <p id="pack-status" class="hint status-text"></p>
-          </section>
-
-          <section class="side-card">
-            <h3>Users</h3>
-            <div class="table-wrap">
-              <table class="admin-table" id="users-table">
-                <thead><tr><th>Email</th><th>Role</th><th>Balance</th><th>Joined</th></tr></thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </section>
-
-          <section class="side-card">
-            <h3>Recent transactions</h3>
-            <div class="table-wrap">
-              <table class="admin-table" id="transactions-table">
-                <thead><tr><th>Type</th><th>Credits</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </section>
         </main>
+      </div>
+
+      <div id="adjust-modal" class="modal-overlay" hidden>
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>Adjust balance</h3>
+            <button type="button" id="close-adjust-btn" class="icon-btn" aria-label="Close">✕</button>
+          </div>
+          <p class="hint">User: <strong id="adjust-user-email"></strong></p>
+          <form id="adjust-form">
+            <label class="field">
+              <span>Amount (credits) <span class="hint-inline">— positive to credit, negative to debit</span></span>
+              <input type="number" id="adjust-amount" step="1" required />
+            </label>
+            <label class="field">
+              <span>Reason <span class="hint-inline">(for the audit log)</span></span>
+              <textarea id="adjust-note" rows="2" placeholder="e.g. Refund for failed stream on Sep 16"></textarea>
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm">Apply adjustment</button>
+            <p id="adjust-status" class="hint status-text"></p>
+          </form>
+        </div>
       </div>
 
       <div id="toast" class="toast" hidden></div>
