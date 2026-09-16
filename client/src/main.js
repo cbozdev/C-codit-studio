@@ -8,11 +8,14 @@ import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
 
 const authScreen = document.getElementById("auth-screen");
 const authForm = document.getElementById("auth-form");
+const authHeading = document.getElementById("auth-heading");
 const authEmailInput = document.getElementById("auth-email");
 const authPasswordInput = document.getElementById("auth-password");
 const authSubmitBtn = document.getElementById("auth-submit-btn");
 const authError = document.getElementById("auth-error");
 const authToggleModeBtn = document.getElementById("auth-toggle-mode");
+const authTermsRow = document.getElementById("auth-terms-row");
+const authTermsCheckbox = document.getElementById("auth-terms-checkbox");
 
 const topbar = document.getElementById("topbar");
 const studioScreen = document.getElementById("studio-screen");
@@ -116,9 +119,16 @@ function formatDuration(ms) {
 
 function setAuthMode(newMode) {
   authMode = newMode;
+  authHeading.textContent = authMode === "signin" ? "Sign in" : "Create your account";
   authSubmitBtn.textContent = authMode === "signin" ? "Sign in" : "Create account";
   authToggleModeBtn.textContent =
     authMode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in";
+  authTermsRow.hidden = authMode !== "signup";
+  // A `required` field inside a hidden container can't be focused, so
+  // browsers silently refuse to submit the form at all when it's invalid —
+  // no error, no event, nothing. Only mark it required while it's actually
+  // visible (signup mode).
+  authTermsCheckbox.required = authMode === "signup";
   authError.hidden = true;
 }
 setAuthMode("signin");
@@ -134,21 +144,41 @@ authForm.addEventListener("submit", async (e) => {
 
   const email = authEmailInput.value.trim();
   const password = authPasswordInput.value;
+  const originalLabel = authSubmitBtn.textContent;
+  authSubmitBtn.textContent = "Please wait...";
 
   try {
-    const { error } =
+    const { data, error } =
       authMode === "signin"
         ? await supabase.auth.signInWithPassword({ email, password })
         : await supabase.auth.signUp({ email, password });
     if (error) throw error;
+
     if (authMode === "signup") {
-      showToast("Account created. If email confirmation is required, check your inbox.");
+      if (data.session) {
+        // Email confirmation is off for this project — we're signed in
+        // immediately, so don't wait on a confirmation step that isn't
+        // coming.
+        await showAuthedUI(data.session);
+      } else {
+        showToast("Account created — check your inbox to confirm your email, then sign in.");
+        setAuthMode("signin");
+      }
+    } else if (data.session) {
+      // Don't rely solely on onAuthStateChange to update the UI — it should
+      // fire, but using the session we already have in hand is more direct
+      // and avoids the UI silently never updating if it doesn't.
+      await showAuthedUI(data.session);
+    } else {
+      throw new Error("Signed in, but no session was returned. Please try again.");
     }
   } catch (err) {
+    console.error("Auth error", err);
     authError.hidden = false;
-    authError.textContent = err.message || "Could not sign in.";
+    authError.textContent = err?.message || "Something went wrong. Please try again.";
   } finally {
     authSubmitBtn.disabled = false;
+    authSubmitBtn.textContent = originalLabel;
   }
 });
 
