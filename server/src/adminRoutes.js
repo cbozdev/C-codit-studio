@@ -1,7 +1,6 @@
 import express from "express";
 import { requireAuth, requireAdmin } from "./authMiddleware.js";
 import { getSupabaseAdmin } from "./supabase.js";
-import { adjustBalance, recordTransaction } from "./wallet.js";
 
 export const adminRouter = express.Router();
 adminRouter.use(requireAuth, requireAdmin);
@@ -83,14 +82,14 @@ adminRouter.post("/users/:id/adjust-balance", async (req, res) => {
   }
 
   try {
-    const newBalance = await adjustBalance(req.params.id, value);
-    await recordTransaction({
-      userId: req.params.id,
-      type: "admin_adjustment",
-      credits: value,
-      status: "completed",
-      note: `[by ${req.user.email}]${note ? " " + note : ""}`,
+    const supabase = getSupabaseAdmin();
+    const { data: newBalance, error } = await supabase.rpc("admin_adjust_wallet", {
+      p_user_id: req.params.id,
+      p_delta: value,
+      p_admin_email: req.user.email,
+      p_note: note || null,
     });
+    if (error) throw error;
     res.json({ ok: true, balance: newBalance });
   } catch (err) {
     console.error("admin adjust-balance error", err);
