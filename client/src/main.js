@@ -1,8 +1,30 @@
 import "./style.css";
 import { isWebRTCSupported, listDevices, getLocalStream, stopStream } from "./media.js";
 import { DecartEffects, getRealtimeModel } from "./decart.js";
+import { apiUrl } from "./api.js";
+import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
 
 // ---------- DOM ----------
+
+const authScreen = document.getElementById("auth-screen");
+const authForm = document.getElementById("auth-form");
+const authEmailInput = document.getElementById("auth-email");
+const authPasswordInput = document.getElementById("auth-password");
+const authSubmitBtn = document.getElementById("auth-submit-btn");
+const authError = document.getElementById("auth-error");
+const authToggleModeBtn = document.getElementById("auth-toggle-mode");
+
+const topbar = document.getElementById("topbar");
+const studioScreen = document.getElementById("studio-screen");
+const walletBalanceEl = document.getElementById("wallet-balance");
+const topupBtn = document.getElementById("topup-btn");
+const adminLink = document.getElementById("admin-link");
+const signOutBtn = document.getElementById("sign-out-btn");
+
+const topupModal = document.getElementById("topup-modal");
+const closeTopupBtn = document.getElementById("close-topup-btn");
+const packListEl = document.getElementById("pack-list");
+const topupStatus = document.getElementById("topup-status");
 
 const headerStatusText = document.getElementById("header-status-text");
 const headerStatus = document.getElementById("header-status");
@@ -59,6 +81,8 @@ let decart = null;
 let aiEffectsGeneration = 0;
 let durationTimer = null;
 let sessionStartedAt = null;
+let accessToken = null;
+let authMode = "signin"; // "signin" | "signup"
 
 // ---------- Small UI helpers ----------
 
@@ -86,6 +110,164 @@ function formatDuration(ms) {
   const m = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
   const s = String(totalSeconds % 60).padStart(2, "0");
   return `${m}:${s}`;
+}
+
+// ---------- Auth ----------
+
+function setAuthMode(newMode) {
+  authMode = newMode;
+  authSubmitBtn.textContent = authMode === "signin" ? "Sign in" : "Create account";
+  authToggleModeBtn.textContent =
+    authMode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in";
+  authError.hidden = true;
+}
+setAuthMode("signin");
+
+authToggleModeBtn.addEventListener("click", () => {
+  setAuthMode(authMode === "signin" ? "signup" : "signin");
+});
+
+authForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  authError.hidden = true;
+  authSubmitBtn.disabled = true;
+
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+
+  try {
+    const { error } =
+      authMode === "signin"
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+    if (authMode === "signup") {
+      showToast("Account created. If email confirmation is required, check your inbox.");
+    }
+  } catch (err) {
+    authError.hidden = false;
+    authError.textContent = err.message || "Could not sign in.";
+  } finally {
+    authSubmitBtn.disabled = false;
+  }
+});
+
+signOutBtn.addEventListener("click", async () => {
+  if (decart?.isActive) await stopStreaming();
+  await supabase.auth.signOut();
+});
+
+async function showAuthedUI(session) {
+  accessToken = session.access_token;
+  authScreen.hidden = true;
+  topbar.hidden = false;
+  studioScreen.hidden = false;
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
+  adminLink.hidden = profile?.role !== "admin";
+
+  await refreshWallet();
+}
+
+function showSignedOutUI() {
+  accessToken = null;
+  authScreen.hidden = false;
+  topbar.hidden = true;
+  studioScreen.hidden = true;
+}
+
+async function refreshWallet() {
+  if (!accessToken) return;
+  try {
+    const res = await fetch(apiUrl("/api/wallet"), { headers: { Authorization: `Bearer ${accessToken}` } });
+    const body = await res.json();
+    if (res.ok) walletBalanceEl.textContent = body.balanceCredits;
+  } catch (err) {
+    console.warn("Could not refresh wallet", err);
+  }
+}
+
+if (isSupabaseConfigured) {
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (session) showAuthedUI(session);
+    else showSignedOutUI();
+  });
+} else {
+  authError.hidden = false;
+  authError.textContent = "Accounts are not configured on this deployment.";
+}
+
+// ---------- Top-up ----------
+
+async function loadPacks() {
+  packListEl.innerHTML = "";
+  const { data: packs, error } = await supabase
+    .from("packs")
+    .select("id, name, credits, price_ngn")
+    .eq("active", true)
+    .order("sort_order");
+  if (error || !packs) {
+    packListEl.innerHTML = `<p class="hint status-text status-error">Could not load packs.</p>`;
+    return;
+  }
+  const { data: pricing } = await supabase.from("pricing_config").select("credits_per_second").eq("id", 1).single();
+  const rate = Number(pricing?.credits_per_second || 2);
+
+  packs.forEach((pack) => {
+    const seconds = Math.floor(pack.credits / rate);
+    const minutes = Math.floor(seconds / 60);
+    const item = document.createElement("div");
+    item.className = "pack-item";
+    item.innerHTML = `
+      <div class="pack-item-info">
+        <span class="pack-item-name">${pack.name}</span>
+        <span class="pack-item-meta">${pack.credits} credits · ≈ ${minutes} min streaming</span>
+      </div>
+      <span class="pack-item-price">₦${pack.price_ngn.toLocaleString()}</span>
+      <button type="button" class="btn btn-primary btn-sm" data-pack-id="${pack.id}">Buy</button>
+    `;
+    packListEl.appendChild(item);
+  });
+}
+
+packListEl.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-pack-id]");
+  if (!btn) return;
+  btn.disabled = true;
+  topupStatus.textContent = "Starting checkout...";
+  topupStatus.classList.remove("status-error");
+  try {
+    const res = await fetch(apiUrl("/api/wallet/topup"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      body: JSON.stringify({ packId: btn.dataset.packId }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "Could not start checkout.");
+    window.location.href = body.checkoutUrl;
+  } catch (err) {
+    topupStatus.textContent = err.message;
+    topupStatus.classList.add("status-error");
+    btn.disabled = false;
+  }
+});
+
+topupBtn.addEventListener("click", () => {
+  topupModal.hidden = false;
+  topupStatus.textContent = "";
+  loadPacks();
+});
+closeTopupBtn.addEventListener("click", () => (topupModal.hidden = true));
+topupModal.addEventListener("click", (e) => {
+  if (e.target === topupModal) topupModal.hidden = true;
+});
+
+// Korapay redirects back here after checkout — refresh the balance (the
+// webhook is what actually credited it, this just re-fetches to show it).
+if (new URLSearchParams(window.location.search).get("topup") === "complete") {
+  showToast("Payment received — refreshing balance...");
+  window.history.replaceState({}, "", window.location.pathname);
+  setTimeout(refreshWallet, 1500);
 }
 
 // ---------- OBS URL ----------
@@ -299,7 +481,7 @@ dropzone.addEventListener("drop", (e) => {
 
 async function publishStreamSession(subscribeToken) {
   try {
-    await fetch("/api/stream-session", {
+    await fetch(apiUrl("/api/stream-session"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ subscribeToken, model: "lucy-2.5" }),
@@ -310,7 +492,7 @@ async function publishStreamSession(subscribeToken) {
 }
 
 function clearStreamSession() {
-  fetch("/api/stream-session", { method: "DELETE", keepalive: true }).catch(() => {});
+  fetch(apiUrl("/api/stream-session"), { method: "DELETE", keepalive: true }).catch(() => {});
 }
 
 window.addEventListener("beforeunload", clearStreamSession);
@@ -335,7 +517,7 @@ function stopDurationTimer() {
 
 async function checkDecartAvailability() {
   try {
-    const res = await fetch("/api/health");
+    const res = await fetch(apiUrl("/api/health"));
     const body = await res.json();
     decartConfigured = Boolean(body.decartConfigured);
   } catch {
@@ -349,6 +531,10 @@ async function checkDecartAvailability() {
 
 async function startStreaming() {
   if (!decartConfigured || !cameraStream) return;
+  if (!accessToken) {
+    setStreamStatus("Sign in to start streaming.", "error");
+    return;
+  }
   const myGeneration = ++aiEffectsGeneration;
   const { prompt, enhance } = currentPromptAndEnhance();
 
@@ -376,11 +562,20 @@ async function startStreaming() {
     publishStreamSession(e.detail.subscribeToken);
     obsLiveBadge.hidden = false;
   });
+  instance.addEventListener("balance", (e) => {
+    if (myGeneration !== aiEffectsGeneration) return;
+    walletBalanceEl.textContent = e.detail.balance;
+  });
+  instance.addEventListener("billed", (e) => {
+    if (myGeneration !== aiEffectsGeneration) return;
+    showToast(`Charged ${e.detail.creditsCharged} credits for ${e.detail.secondsUsed}s of streaming.`);
+    refreshWallet();
+  });
 
   setStreamStatus("Connecting to Lucy 2.5...");
   streamToggleBtn.disabled = true;
   try {
-    await instance.start(cameraStream, { prompt, enhance, image: referenceImageFile });
+    await instance.start(cameraStream, { prompt, enhance, image: referenceImageFile, accessToken });
   } catch (err) {
     if (myGeneration === aiEffectsGeneration) {
       console.error(err);
