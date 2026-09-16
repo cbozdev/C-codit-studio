@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>C Studio — Admin</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect x=%221%22 y=%221%22 width=%2222%22 height=%2222%22 rx=%224%22 fill=%22%230b0c0f%22 stroke=%22%2333363f%22/><text x=%2212%22 y=%2216.5%22 font-family=%22monospace%22 font-size=%2212%22 font-weight=%22700%22 fill=%22%238b8e96%22 text-anchor=%22middle%22>C</text></svg>" />
+  </head>
+  <body>
+    <div id="app">
+      <section id="gate-screen" class="auth-screen">
+        <div class="auth-card">
+          <div class="brand"><span class="brand-mark">C</span><h1>C Studio Admin</h1></div>
+          <p id="gate-message" class="hint">Checking access…</p>
+          <a href="/" class="link-btn">← Back to Studio</a>
+        </div>
+      </section>
+
+      <div id="admin-screen" hidden>
+        <header class="topbar">
+          <div class="brand">
+            <span class="brand-mark">C</span>
+            <h1>C Studio Admin</h1>
+          </div>
+          <div class="header-right">
+            <a href="/" class="link-btn">← Studio</a>
+          </div>
+        </header>
+
+        <main class="studio-layout">
+          <section class="side-card">
+            <h3>Pricing</h3>
+            <label class="field">
+              <span>Credits charged per second of streaming</span>
+              <input type="number" id="credits-per-second" min="0.01" step="0.01" />
+            </label>
+            <button type="button" id="save-pricing-btn" class="btn btn-primary btn-sm">Save pricing</button>
+            <p id="pricing-status" class="hint status-text"></p>
+          </section>
+
+          <section class="side-card">
+            <h3>Top-up packs</h3>
+            <div id="admin-pack-list" class="pack-list"></div>
+
+            <form id="new-pack-form" class="new-pack-form">
+              <label class="field"><span>Name</span><input type="text" id="new-pack-name" required /></label>
+              <label class="field"><span>Credits</span><input type="number" id="new-pack-credits" min="1" required /></label>
+              <label class="field"><span>Price (₦)</span><input type="number" id="new-pack-price" min="1" required /></label>
+              <button type="submit" class="btn btn-ghost btn-sm">Add pack</button>
+            </form>
+            <p id="pack-status" class="hint status-text"></p>
+          </section>
+
+          <section class="side-card">
+            <h3>Users</h3>
+            <div class="table-wrap">
+              <table class="admin-table" id="users-table">
+                <thead><tr><th>Email</th><th>Role</th><th>Balance</th><th>Joined</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="side-card">
+            <h3>Recent transactions</h3>
+            <div class="table-wrap">
+              <table class="admin-table" id="transactions-table">
+                <thead><tr><th>Type</th><th>Credits</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <div id="toast" class="toast" hidden></div>
+    </div>
+
+    <script type="module" src="/src/admin-main.js"></script>
+  </body>
+</html>
