@@ -1,0 +1,17 @@
+{
+  "name": "ai-video-call-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Decart Lucy 2.5 token server and stream-session relay for the C Studio app",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@decartai/sdk": "^0.2.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  }
+}
