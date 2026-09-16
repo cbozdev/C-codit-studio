@@ -4,36 +4,58 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>C Studio</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect x=%221%22 y=%221%22 width=%2222%22 height=%2222%22 rx=%224%22 fill=%22%230b0c0f%22 stroke=%22%2333363f%22/><text x=%2212%22 y=%2216.5%22 font-family=%22monospace%22 font-size=%2212%22 font-weight=%22700%22 fill=%22%238b8e96%22 text-anchor=%22middle%22>C</text></svg>" />
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
   </head>
   <body>
     <div id="app">
       <section id="auth-screen" class="auth-screen">
-        <div class="auth-card">
+        <div class="auth-showcase">
           <div class="brand">
-            <span class="brand-mark">C</span>
+            <img src="/logo.svg" alt="" class="brand-mark" width="28" height="28" />
             <h1>C Studio</h1>
           </div>
+          <h2 class="auth-showcase-headline">Real-time AI video, priced by the second.</h2>
+          <ul class="auth-feature-list">
+            <li>Live AI video transformation powered by Decart Lucy 2.5</li>
+            <li>Works with OBS, Twitch, YouTube, and any streaming setup</li>
+            <li>Pay only for the seconds you actually stream</li>
+          </ul>
+        </div>
+
+        <div class="auth-card">
+          <div class="brand auth-card-brand">
+            <img src="/logo.svg" alt="" class="brand-mark" width="24" height="24" />
+            <h1>C Studio</h1>
+          </div>
+          <h2 id="auth-heading" class="auth-heading">Sign in</h2>
           <p class="hint">Sign in to start streaming.</p>
           <form id="auth-form">
             <label class="field">
               <span>Email</span>
-              <input type="email" id="auth-email" required autocomplete="email" />
+              <input type="email" id="auth-email" required autocomplete="email" placeholder="you@example.com" />
             </label>
             <label class="field">
               <span>Password</span>
-              <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" />
+              <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" placeholder="At least 6 characters" />
+            </label>
+            <label class="switch" id="auth-terms-row" hidden>
+              <input type="checkbox" id="auth-terms-checkbox" />
+              <span>I agree to the <a href="/terms.html" target="_blank" class="link-btn">Terms</a> and <a href="/privacy.html" target="_blank" class="link-btn">Privacy Policy</a></span>
             </label>
             <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-lg">Sign in</button>
             <p id="auth-error" class="hint status-text status-error" hidden></p>
           </form>
           <button type="button" id="auth-toggle-mode" class="link-btn">Need an account? Sign up</button>
+          <p class="auth-legal-footer">
+            <a href="/terms.html" target="_blank" class="link-btn">Terms</a> ·
+            <a href="/privacy.html" target="_blank" class="link-btn">Privacy</a>
+          </p>
         </div>
       </section>
 
       <header class="topbar" id="topbar" hidden>
         <div class="brand">
-          <span class="brand-mark">C</span>
+          <img src="/logo.svg" alt="" class="brand-mark" width="24" height="24" />
           <h1>C Studio</h1>
         </div>
         <div class="header-right">
@@ -174,6 +196,12 @@
             </div>
           </aside>
         </section>
+
+        <footer class="app-footer">
+          <span>© 2026 C Studio</span>
+          <a href="/terms.html" class="link-btn">Terms</a>
+          <a href="/privacy.html" class="link-btn">Privacy</a>
+        </footer>
       </main>
 
       <div id="topup-modal" class="modal-overlay" hidden>
