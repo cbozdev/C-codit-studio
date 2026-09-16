@@ -47,7 +47,7 @@ export async function reserveCredits(userId, amount) {
   return data === -1 ? null : data;
 }
 
-export async function recordTransaction({ userId, type, credits, amountNgn, korapayReference, status }) {
+export async function recordTransaction({ userId, type, credits, amountNgn, korapayReference, status, note }) {
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from("transactions").insert({
     user_id: userId,
@@ -56,6 +56,7 @@ export async function recordTransaction({ userId, type, credits, amountNgn, kora
     amount_ngn: amountNgn ?? null,
     korapay_reference: korapayReference ?? null,
     status,
+    note: note ?? null,
   });
   if (error) throw new Error("Could not record transaction.");
 }
