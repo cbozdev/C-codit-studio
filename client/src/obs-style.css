@@ -1,0 +1,49 @@
+:root {
+  color-scheme: dark;
+  --text-muted: #9aa2b1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body.obs-body {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #000;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+#stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+#stage video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.placeholder[hidden] {
+  display: none;
+}
