@@ -41,6 +41,44 @@ body {
   flex-direction: column;
 }
 
+/* ---------- Auth screen ---------- */
+
+.auth-screen {
+  flex: 1;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth-screen[hidden] {
+  display: none;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+}
+
+.auth-card .brand {
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.auth-card > .hint {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.auth-card .btn-lg {
+  margin-top: 4px;
+}
+
 /* ---------- Top bar ---------- */
 
 .topbar {
@@ -52,6 +90,28 @@ body {
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;
+}
+
+.topbar[hidden] {
+  display: none;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.wallet-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-family: var(--mono);
+}
+
+.wallet-chip #wallet-balance {
+  font-weight: 600;
 }
 
 .brand {
@@ -116,6 +176,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.studio-layout[hidden] {
+  display: none;
 }
 
 .preview-row {
@@ -551,12 +615,175 @@ input[type="range"] {
   z-index: 50;
 }
 
+/* ---------- Modal ---------- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 440px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.icon-btn:hover {
+  color: var(--text);
+}
+
+.pack-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pack-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  background: var(--surface-2);
+}
+
+.pack-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pack-item-name {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.pack-item-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+}
+
+.pack-item-price {
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: var(--mono);
+  white-space: nowrap;
+  margin-right: 12px;
+}
+
+/* ---------- Admin ---------- */
+
+.new-pack-form {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.new-pack-form .field {
+  margin-bottom: 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.admin-table th {
+  text-align: left;
+  color: var(--text-faint);
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+}
+
+.pack-item input[type="text"],
+.pack-item input[type="number"] {
+  width: 100%;
+}
+
+.pack-item-editable {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
 @media (max-width: 860px) {
   .preview-row {
     grid-template-columns: 1fr;
   }
 
   .controls-row {
+    grid-template-columns: 1fr;
+  }
+
+  .header-right {
+    gap: 10px;
+  }
+
+  .wallet-chip .hint-inline {
+    display: none;
+  }
+
+  .new-pack-form,
+  .pack-item-editable {
     grid-template-columns: 1fr;
   }
 }
