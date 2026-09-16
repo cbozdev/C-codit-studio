@@ -13,15 +13,28 @@ adminRouter.get("/pricing", async (_req, res) => {
 });
 
 adminRouter.put("/pricing", async (req, res) => {
-  const { creditsPerSecond } = req.body || {};
+  const { creditsPerSecond, decartCostPerSecondUsd, usdToNgnRate } = req.body || {};
   const value = Number(creditsPerSecond);
+  const costValue = Number(decartCostPerSecondUsd);
+  const rateValue = Number(usdToNgnRate);
   if (!Number.isFinite(value) || value <= 0) {
     return res.status(400).json({ error: "creditsPerSecond must be a positive number." });
+  }
+  if (!Number.isFinite(costValue) || costValue <= 0) {
+    return res.status(400).json({ error: "decartCostPerSecondUsd must be a positive number." });
+  }
+  if (!Number.isFinite(rateValue) || rateValue <= 0) {
+    return res.status(400).json({ error: "usdToNgnRate must be a positive number." });
   }
   const supabase = getSupabaseAdmin();
   const { error } = await supabase
     .from("pricing_config")
-    .update({ credits_per_second: value, updated_at: new Date().toISOString() })
+    .update({
+      credits_per_second: value,
+      decart_cost_per_second_usd: costValue,
+      usd_to_ngn_rate: rateValue,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", 1);
   if (error) return res.status(500).json({ error: "Could not update pricing." });
   res.json({ ok: true });

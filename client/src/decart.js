@@ -72,6 +72,16 @@ export class DecartEffects extends EventTarget {
       initialState: {
         prompt: { text: prompt, enhance: Boolean(enhance) },
       },
+      // Self-anchoring (on by default) feeds the model's own prior output
+      // back in as an additional reference, to keep continuity-style edits
+      // (e.g. "change the wall color") stable over a long session. For a
+      // character/body swap against a fixed reference image, that's
+      // actively harmful: any single bad frame becomes part of the anchor,
+      // and errors compound over time into a drifting, unrelated face —
+      // exactly what "keeps changing to different faces" looks like.
+      // Decart's own docs call this out explicitly: don't use self-anchoring
+      // when the target should stay locked to a supplied reference image.
+      ...(image ? { queryParams: { self_anchor: "false" } } : {}),
     });
 
     this.session.on("error", (error) => {

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tutorial — C Studio</title>
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="/logo.svg" alt="" class="brand-mark" width="24" height="24" />
+        <h1>C Studio</h1>
+      </div>
+      <div class="header-right">
+        <a href="/" class="link-btn">← Back to Studio</a>
+      </div>
+    </header>
+
+    <main class="legal-page">
+      <article class="legal-content">
+        <h1>Tutorial</h1>
+        <p class="hint">A short walkthrough of C Studio, from sign-up to going live in OBS.</p>
+
+        <div class="video-placeholder">
+          <span class="video-placeholder-icon">▶</span>
+          <p>Video walkthrough coming soon.</p>
+          <p class="hint">In the meantime, the steps below cover everything the video will.</p>
+        </div>
+
+        <h2>1. Create an account</h2>
+        <p>
+          Sign up with your email and a password on the sign-in screen. New accounts start with
+          <strong>0 credits</strong> — you'll need to top up before you can start a stream (see step 5).
+        </p>
+
+        <h2>2. Enable your camera</h2>
+        <p>
+          On the Studio page, click <strong>Enable camera</strong> and allow browser permission when prompted. Your
+          raw feed appears in the left tile; the AI-transformed output will appear in the right tile once you start
+          streaming.
+        </p>
+
+        <h2>3. Choose a mode</h2>
+        <ul>
+          <li>
+            <strong>Realistic</strong> — a realism slider controls how much subtle enhancement is applied while
+            keeping you looking natural. Higher values stay closer to your untouched look.
+          </li>
+          <li>
+            <strong>Stylized</strong> — pick a preset (anime, retro VHS, cinematic, background swap, character
+            swap, ...) or write your own custom prompt describing how the video should look.
+          </li>
+        </ul>
+
+        <h2>4. Optional: character or full-body swap</h2>
+        <p>
+          Drop a clear, well-lit photo into the <strong>Reference image</strong> box to swap yourself for the
+          person in that photo. Works in either mode. For best results, use a photo with similar framing to your
+          camera (a face photo if your camera shows your face; a full-body photo if it shows more).
+        </p>
+
+        <h2>5. Top up credits</h2>
+        <p>
+          Click <strong>Top up</strong> in the top bar, choose a credit pack, and complete payment through
+          Korapay's secure checkout. Streaming costs credits per second of active use — the exact rate is shown on
+          the top-up screen. Your balance updates automatically once payment completes.
+        </p>
+
+        <h2>6. Start streaming</h2>
+        <p>
+          Click <strong>Start stream</strong>. The AI output tile will briefly show "Stabilizing output..." while
+          Lucy 2.5 locks onto your chosen look, then switch to the live transformed feed. Click <strong>Stop
+          stream</strong> when you're done — any unused portion of your reserved credits is refunded automatically.
+        </p>
+
+        <h2>7. Send it to OBS (or any streaming/call app)</h2>
+        <p>
+          C Studio doesn't do the actual calling or streaming — it feeds a transformed webcam into whatever app you
+          use for that. In OBS:
+        </p>
+        <ul>
+          <li>
+            <strong>Sources → + → Browser Source</strong>, and paste the URL shown in the Studio's OBS Setup panel.
+          </li>
+          <li>Set that source's Width/Height to <strong>1280 × 720</strong> for a pixel-perfect capture.</li>
+          <li>
+            <strong>Controls → Start Virtual Camera</strong> in OBS, then select "OBS Virtual Camera" as your
+            webcam in Zoom, Meet, Teams, Discord, Twitch — anything.
+          </li>
+        </ul>
+        <p>
+          This URL stays the same across every stream you start — add it to OBS once, and it automatically shows
+          whatever's currently live from your Studio.
+        </p>
+
+        <h2>Need help?</h2>
+        <p>Questions not covered here can be sent to the support contact listed in the app.</p>
+      </article>
+    </main>
+  </body>
+</html>

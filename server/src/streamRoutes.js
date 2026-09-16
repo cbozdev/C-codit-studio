@@ -18,6 +18,35 @@ streamRouter.post("/start", requireAuth, async (req, res) => {
   try {
     const creditsPerSecond = await getCreditsPerSecond();
     const supabase = getSupabaseAdmin();
+
+    // A session can be left "active" forever if the browser crashes or the
+    // tab is closed without hitting Stop. Before deciding whether this user
+    // may start a new one, resolve any stale session of theirs: if it's past
+    // its own paid-for duration it's definitely over, so close it out (no
+    // refund — the full reservation covers exactly maxSessionDuration, which
+    // Decart itself enforces server-side, so nothing is left unused). If it's
+    // still within its window, it might genuinely be live — block a second
+    // concurrent stream rather than silently double-billing the same account.
+    const { data: openSessions, error: openErr } = await supabase
+      .from("stream_sessions")
+      .select("id, started_at, max_seconds")
+      .eq("user_id", req.user.id)
+      .eq("status", "active");
+    if (openErr) throw openErr;
+
+    const GRACE_SECONDS = 30;
+    for (const s of openSessions || []) {
+      const ageSeconds = (Date.now() - new Date(s.started_at).getTime()) / 1000;
+      if (ageSeconds > s.max_seconds + GRACE_SECONDS) {
+        await supabase
+          .from("stream_sessions")
+          .update({ status: "ended", ended_at: new Date().toISOString() })
+          .eq("id", s.id);
+      } else {
+        return res.status(409).json({ error: "You already have an active stream. Stop it before starting a new one." });
+      }
+    }
+
     const { data: wallet, error: walletErr } = await supabase
       .from("wallets")
       .select("balance_credits")

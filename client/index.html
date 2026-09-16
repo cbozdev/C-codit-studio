@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>C Studio</title>
     <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="app">
@@ -14,7 +20,7 @@
             <img src="/logo.svg" alt="" class="brand-mark" width="28" height="28" />
             <h1>C Studio</h1>
           </div>
-          <h2 class="auth-showcase-headline">Real-time AI video, priced by the second.</h2>
+          <h2 class="auth-showcase-headline">Real-time AI video, <em>priced by the second</em>.</h2>
           <ul class="auth-feature-list">
             <li>Live AI video transformation powered by Decart Lucy 2.5</li>
             <li>Works with OBS, Twitch, YouTube, and any streaming setup</li>
@@ -53,166 +59,295 @@
         </div>
       </section>
 
-      <header class="topbar" id="topbar" hidden>
-        <div class="brand">
-          <img src="/logo.svg" alt="" class="brand-mark" width="24" height="24" />
-          <h1>C Studio</h1>
-        </div>
-        <div class="header-right">
-          <div class="header-status" id="header-status">
-            <span class="dot"></span>
-            <span id="header-status-text">Idle — not streaming</span>
+      <div id="app-shell" class="admin-shell" hidden>
+        <aside class="admin-sidebar">
+          <div class="brand admin-sidebar-brand">
+            <img src="/logo.svg" alt="" class="brand-mark" width="24" height="24" />
+            <h1>C Studio</h1>
           </div>
-          <div class="wallet-chip">
-            <span id="wallet-balance">0</span>
-            <span class="hint-inline">credits</span>
-            <button type="button" id="topup-btn" class="btn btn-ghost btn-sm">Top up</button>
-          </div>
-          <a id="admin-link" href="/admin.html" class="link-btn" hidden>Admin</a>
-          <button type="button" id="sign-out-btn" class="btn btn-ghost btn-sm">Sign out</button>
-        </div>
-      </header>
+          <nav class="admin-nav" id="app-nav">
+            <button type="button" class="admin-nav-item active" data-panel="dashboard">Dashboard</button>
+            <button type="button" class="admin-nav-item" data-panel="stream">Start Stream</button>
+            <button type="button" class="admin-nav-item" data-panel="wallet">Wallet</button>
+            <button type="button" class="admin-nav-item" data-panel="billing">Billing</button>
+            <button type="button" class="admin-nav-item" data-panel="settings">Settings</button>
+            <a href="/tutorial.html" class="admin-nav-link">Tutorial</a>
+            <a id="admin-link" href="/admin.html" class="admin-nav-link" hidden>Admin</a>
+          </nav>
 
-      <main class="studio-layout" id="studio-screen" hidden>
-        <section class="preview-row">
-          <div class="preview-card">
-            <div class="preview-card-header">
-              <span class="tag">Your camera</span>
-              <span class="tag" id="camera-quality-tag">720p</span>
+          <div class="sidebar-balance-card">
+            <span class="stat-label">Balance</span>
+            <div class="sidebar-balance-row">
+              <span id="wallet-balance">0</span>
+              <span class="hint-inline">credits</span>
             </div>
-            <div class="preview-video-wrap">
-              <video id="camera-preview" autoplay playsinline muted></video>
-              <div class="preview-placeholder" id="camera-placeholder">
-                <p>Camera off</p>
-                <button type="button" id="enable-camera-btn" class="btn btn-primary btn-sm">Enable camera</button>
-              </div>
-            </div>
+            <button type="button" id="sidebar-topup-btn" class="link-btn">+ Top up</button>
           </div>
 
-          <div class="preview-card">
-            <div class="preview-card-header">
-              <span class="tag tag-accent">AI output · Lucy 2.5</span>
-              <span class="tag" id="latency-tag">real-time</span>
+          <button type="button" id="sign-out-btn" class="admin-nav-link admin-nav-button">Sign out</button>
+        </aside>
+
+        <main class="admin-main">
+          <header class="admin-topbar">
+            <h2 id="panel-title">Dashboard</h2>
+            <div class="header-status" id="header-status">
+              <span class="dot"></span>
+              <span id="header-status-text">Idle — not streaming</span>
             </div>
-            <div class="preview-video-wrap">
-              <video id="output-preview" autoplay playsinline muted></video>
-              <div class="preview-placeholder" id="output-placeholder">Your transformed feed appears here</div>
-            </div>
-          </div>
-        </section>
+          </header>
 
-        <section class="controls-row">
-          <div class="controls-main">
-            <label class="field">
-              <span>Camera</span>
-              <select id="camera-select"></select>
-            </label>
-
-            <div class="mode-toggle" id="mode-toggle">
-              <button type="button" class="mode-btn active" data-mode="realistic">Realistic</button>
-              <button type="button" class="mode-btn" data-mode="stylized">Stylized</button>
-            </div>
-
-            <div id="realistic-controls">
-              <label class="field">
-                <span>Realism <strong id="realism-value">8</strong>/10</span>
-                <input type="range" id="realism-slider" min="0" max="10" value="8" />
-              </label>
-              <p class="hint">Keeps the person looking human and natural — style presets are disabled in this mode.</p>
-            </div>
-
-            <div id="stylized-controls" hidden>
-              <div class="preset-grid" id="preset-grid">
-                <button type="button" class="preset-chip" data-prompt="Restyle as a vivid anime, clean line art, cel shading">Anime style</button>
-                <button type="button" class="preset-chip" data-prompt="Retro 1980s VHS film look, warm grain, soft glow">Retro VHS</button>
-                <button type="button" class="preset-chip" data-prompt="Cinematic studio lighting, shallow depth of field, moody rim light">Cinematic</button>
-                <button type="button" class="preset-chip" data-prompt="Replace the background with a cozy modern office, keep the person unchanged">Office background</button>
-                <button type="button" class="preset-chip" data-prompt="Replace the background with a starfield in outer space">Outer space</button>
-                <button type="button" class="preset-chip" data-prompt="Substitute the person in the video with the person from the reference image, keep pose and motion" data-requires-image="true">Character swap</button>
-              </div>
-
-              <label class="field">
-                <span>Custom prompt</span>
-                <textarea id="ai-prompt" rows="3" placeholder="Describe how the video should look..."></textarea>
-              </label>
-
-              <label class="switch">
-                <input id="ai-enhance" type="checkbox" checked />
-                <span>Enhance prompt automatically</span>
-              </label>
-            </div>
-
-            <div class="field">
-              <span>Reference image <span class="hint-inline">(optional — for character/body swap)</span></span>
-              <div class="dropzone" id="dropzone">
-                <div class="image-preview" id="ai-image-preview-wrap" hidden>
-                  <img id="ai-image-preview" alt="Reference image preview" />
+          <div class="admin-content">
+            <!-- ---------- Dashboard ---------- -->
+            <section class="app-panel" data-panel="dashboard">
+              <div class="stat-grid">
+                <div class="stat-card">
+                  <span class="stat-label">Balance</span>
+                  <span class="stat-value" id="dash-balance">—</span>
                 </div>
-                <div id="dropzone-empty" class="dropzone-empty">
-                  <svg class="dropzone-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M12 16V4M12 4L7 9M12 4l5 5" stroke-linecap="round" stroke-linejoin="round" />
-                    <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  <p>Drop an image here or <button type="button" id="browse-image-btn" class="link-btn">browse files</button></p>
-                  <p class="hint">JPG, PNG, or WebP</p>
+                <div class="stat-card">
+                  <span class="stat-label">Streamed this week</span>
+                  <span class="stat-value" id="dash-streamed-week">—</span>
                 </div>
-                <input id="ai-image-input" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+                <div class="stat-card">
+                  <span class="stat-label">Credits used (lifetime)</span>
+                  <span class="stat-value" id="dash-credits-used">—</span>
+                </div>
+                <div class="stat-card">
+                  <span class="stat-label">Sessions</span>
+                  <span class="stat-value" id="dash-sessions">—</span>
+                </div>
               </div>
-              <button type="button" id="ai-image-remove" class="btn btn-ghost btn-sm" hidden>Remove image</button>
-            </div>
 
-            <button type="button" id="stream-toggle-btn" class="btn btn-primary btn-lg">Start stream</button>
-            <p id="stream-status" class="hint status-text">Idle — not streaming.</p>
-          </div>
-
-          <aside class="controls-side">
-            <div class="side-card">
-              <h3>Session</h3>
-              <dl class="stat-list">
-                <div><dt>Status</dt><dd id="session-status">Idle</dd></div>
-                <div><dt>Model</dt><dd>Lucy 2.5</dd></div>
-                <div><dt>Quality</dt><dd>720p</dd></div>
-                <div><dt>Duration</dt><dd id="session-duration">00:00</dd></div>
-                <div><dt>Generation time</dt><dd id="session-usage">0s</dd></div>
-              </dl>
-            </div>
-
-            <div class="side-card" id="obs-card">
-              <h3>OBS setup <span class="badge" id="obs-live-badge" hidden>LIVE</span></h3>
-              <ol class="steps">
-                <li>Start your stream (left).</li>
-                <li>In OBS: <strong>Sources → + → Browser Source</strong>.</li>
-                <li>Paste the URL below, set Width/Height to <strong>1280 × 720</strong>.</li>
-              </ol>
-              <div class="url-row">
-                <input type="text" id="obs-url" readonly />
-                <button type="button" id="copy-obs-url" class="btn btn-ghost btn-sm">Copy</button>
+              <div class="side-card">
+                <h3>Recent sessions</h3>
+                <div class="table-wrap">
+                  <table class="admin-table" id="dash-sessions-table">
+                    <thead><tr><th>Date</th><th>Duration</th><th>Credits charged</th><th>Status</th></tr></thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
               </div>
-              <p class="hint">
-                This URL is constant — it always shows whatever is currently live from this Studio, so you only add
-                it to OBS once.
-              </p>
-              <a id="open-output-preview" href="/obs.html" target="_blank" rel="noopener" class="link-btn">Open output preview →</a>
-            </div>
-          </aside>
-        </section>
+            </section>
 
-        <footer class="app-footer">
-          <span>© 2026 C Studio</span>
-          <a href="/terms.html" class="link-btn">Terms</a>
-          <a href="/privacy.html" class="link-btn">Privacy</a>
-        </footer>
-      </main>
+            <!-- ---------- Start Stream ---------- -->
+            <section class="app-panel" data-panel="stream" hidden>
+              <section class="preview-row">
+                <div class="preview-card">
+                  <div class="preview-card-header">
+                    <span class="tag">Your camera</span>
+                    <span class="tag" id="camera-quality-tag">720p</span>
+                  </div>
+                  <div class="preview-video-wrap">
+                    <video id="camera-preview" autoplay playsinline muted></video>
+                    <div class="preview-placeholder" id="camera-placeholder">
+                      <p>Camera off</p>
+                      <button type="button" id="enable-camera-btn" class="btn btn-primary btn-sm">Enable camera</button>
+                    </div>
+                  </div>
+                </div>
 
-      <div id="topup-modal" class="modal-overlay" hidden>
-        <div class="modal-card">
-          <div class="modal-header">
-            <h3>Top up credits</h3>
-            <button type="button" id="close-topup-btn" class="icon-btn" aria-label="Close">✕</button>
+                <div class="preview-card">
+                  <div class="preview-card-header">
+                    <span class="tag tag-accent">AI output · Lucy 2.5</span>
+                    <span class="tag" id="latency-tag">real-time</span>
+                  </div>
+                  <div class="preview-video-wrap">
+                    <video id="output-preview" autoplay playsinline muted></video>
+                    <div class="preview-placeholder" id="output-placeholder">Your transformed feed appears here</div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="controls-row">
+                <div class="controls-main">
+                  <label class="field">
+                    <span>Camera</span>
+                    <select id="camera-select"></select>
+                  </label>
+
+                  <div class="mode-toggle" id="mode-toggle">
+                    <button type="button" class="mode-btn active" data-mode="realistic">Realistic</button>
+                    <button type="button" class="mode-btn" data-mode="stylized">Stylized</button>
+                  </div>
+
+                  <div id="realistic-controls">
+                    <label class="field">
+                      <span>Realism <strong id="realism-value">8</strong>/10</span>
+                      <input type="range" id="realism-slider" min="0" max="10" value="8" />
+                    </label>
+                    <p class="hint">Keeps the person looking human and natural — style presets are disabled in this mode.</p>
+                  </div>
+
+                  <div id="stylized-controls" hidden>
+                    <div class="preset-grid" id="preset-grid">
+                      <button type="button" class="preset-chip" data-prompt="Restyle as a vivid anime, clean line art, cel shading">Anime style</button>
+                      <button type="button" class="preset-chip" data-prompt="Retro 1980s VHS film look, warm grain, soft glow">Retro VHS</button>
+                      <button type="button" class="preset-chip" data-prompt="Cinematic studio lighting, shallow depth of field, moody rim light">Cinematic</button>
+                      <button type="button" class="preset-chip" data-prompt="Replace the background with a cozy modern office, keep the person unchanged">Office background</button>
+                      <button type="button" class="preset-chip" data-prompt="Replace the background with a starfield in outer space">Outer space</button>
+                      <button type="button" class="preset-chip" data-prompt="Substitute the person in the video with the person from the reference image, keep pose and motion" data-requires-image="true">Character swap</button>
+                    </div>
+
+                    <label class="field">
+                      <span>Custom prompt</span>
+                      <textarea id="ai-prompt" rows="3" placeholder="Describe how the video should look..."></textarea>
+                    </label>
+
+                    <label class="switch">
+                      <input id="ai-enhance" type="checkbox" checked />
+                      <span>Enhance prompt automatically</span>
+                    </label>
+                  </div>
+
+                  <div class="field">
+                    <span>Reference image <span class="hint-inline">(optional — for character/body swap)</span></span>
+                    <div class="dropzone" id="dropzone">
+                      <div class="image-preview" id="ai-image-preview-wrap" hidden>
+                        <img id="ai-image-preview" alt="Reference image preview" />
+                      </div>
+                      <div id="dropzone-empty" class="dropzone-empty">
+                        <svg class="dropzone-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                          <path d="M12 16V4M12 4L7 9M12 4l5 5" stroke-linecap="round" stroke-linejoin="round" />
+                          <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <p>Drop an image here or <button type="button" id="browse-image-btn" class="link-btn">browse files</button></p>
+                        <p class="hint">JPG, PNG, or WebP</p>
+                      </div>
+                      <input id="ai-image-input" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+                    </div>
+                    <button type="button" id="ai-image-remove" class="btn btn-ghost btn-sm" hidden>Remove image</button>
+                  </div>
+
+                  <button type="button" id="stream-toggle-btn" class="btn btn-primary btn-lg">Start stream</button>
+                  <p id="stream-status" class="hint status-text">Idle — not streaming.</p>
+                </div>
+
+                <aside class="controls-side">
+                  <div class="side-card">
+                    <h3>Session</h3>
+                    <dl class="stat-list">
+                      <div><dt>Status</dt><dd id="session-status">Idle</dd></div>
+                      <div><dt>Model</dt><dd>Lucy 2.5</dd></div>
+                      <div><dt>Quality</dt><dd>720p</dd></div>
+                      <div><dt>Duration</dt><dd id="session-duration">00:00</dd></div>
+                      <div><dt>Generation time</dt><dd id="session-usage">0s</dd></div>
+                    </dl>
+                  </div>
+
+                  <div class="side-card" id="obs-card">
+                    <h3>OBS setup <span class="badge" id="obs-live-badge" hidden>LIVE</span></h3>
+                    <ol class="steps">
+                      <li>Start your stream (left).</li>
+                      <li>In OBS: <strong>Sources → + → Browser Source</strong>.</li>
+                      <li>Paste the URL below, set Width/Height to <strong>1280 × 720</strong>.</li>
+                    </ol>
+                    <div class="url-row">
+                      <input type="text" id="obs-url" readonly />
+                      <button type="button" id="copy-obs-url" class="btn btn-ghost btn-sm">Copy</button>
+                    </div>
+                    <p class="hint">
+                      This URL is constant — it always shows whatever is currently live from this Studio, so you
+                      only add it to OBS once.
+                    </p>
+                    <a id="open-output-preview" href="/obs.html" target="_blank" rel="noopener" class="link-btn">Open output preview →</a>
+                  </div>
+                </aside>
+              </section>
+            </section>
+
+            <!-- ---------- Wallet ---------- -->
+            <section class="app-panel" data-panel="wallet" hidden>
+              <div class="stat-grid">
+                <div class="stat-card">
+                  <span class="stat-label">Current balance</span>
+                  <span class="stat-value" id="wallet-current-balance">—</span>
+                </div>
+                <div class="stat-card">
+                  <span class="stat-label">Total topped up</span>
+                  <span class="stat-value" id="wallet-total-topped-up">—</span>
+                </div>
+                <div class="stat-card">
+                  <span class="stat-label">Credits purchased</span>
+                  <span class="stat-value" id="wallet-credits-purchased">—</span>
+                </div>
+              </div>
+
+              <div class="wallet-columns">
+                <div class="side-card">
+                  <h3>Choose a pack</h3>
+                  <div id="pack-list" class="pack-list"></div>
+                  <p id="topup-status" class="hint status-text"></p>
+                </div>
+
+                <div class="side-card">
+                  <h3>Recent top-ups</h3>
+                  <div class="table-wrap">
+                    <table class="admin-table" id="recent-topups-table">
+                      <thead><tr><th>Date</th><th>Credits</th><th>Amount</th><th>Status</th></tr></thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ---------- Billing ---------- -->
+            <section class="app-panel" data-panel="billing" hidden>
+              <div class="stat-grid">
+                <div class="stat-card">
+                  <span class="stat-label">Total spent</span>
+                  <span class="stat-value" id="billing-total-spent">—</span>
+                </div>
+                <div class="stat-card">
+                  <span class="stat-label">Credits purchased</span>
+                  <span class="stat-value" id="billing-credits-purchased">—</span>
+                </div>
+                <div class="stat-card">
+                  <span class="stat-label">Transactions</span>
+                  <span class="stat-value" id="billing-transaction-count">—</span>
+                </div>
+              </div>
+
+              <div class="side-card">
+                <h3>Ledger</h3>
+                <div class="table-wrap">
+                  <table class="admin-table" id="ledger-table">
+                    <thead><tr><th>Date</th><th>Type</th><th>Credits</th><th>Amount</th><th>Status</th></tr></thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <!-- ---------- Settings ---------- -->
+            <section class="app-panel" data-panel="settings" hidden>
+              <div class="side-card">
+                <h3>Account</h3>
+                <p class="hint">Signed in as <strong id="settings-email"></strong></p>
+              </div>
+
+              <div class="side-card">
+                <h3>Change password</h3>
+                <form id="password-form">
+                  <label class="field">
+                    <span>New password</span>
+                    <input type="password" id="new-password" minlength="6" required autocomplete="new-password" />
+                  </label>
+                  <button type="submit" class="btn btn-primary btn-sm">Update password</button>
+                  <p id="password-status" class="hint status-text"></p>
+                </form>
+              </div>
+
+              <div class="side-card">
+                <h3>Legal</h3>
+                <p class="hint">
+                  <a href="/terms.html" class="link-btn">Terms of Service</a> ·
+                  <a href="/privacy.html" class="link-btn">Privacy Policy</a>
+                </p>
+              </div>
+            </section>
           </div>
-          <div id="pack-list" class="pack-list"></div>
-          <p id="topup-status" class="hint status-text"></p>
-        </div>
+        </main>
       </div>
 
       <div id="toast" class="toast" hidden></div>

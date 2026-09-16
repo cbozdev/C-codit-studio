@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>C Studio — Admin</title>
     <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="app">
@@ -31,6 +37,7 @@
             <button type="button" class="admin-nav-item" data-panel="packs">Top-up packs</button>
             <button type="button" class="admin-nav-item" data-panel="users">Users</button>
             <button type="button" class="admin-nav-item" data-panel="transactions">Transactions</button>
+            <a href="/tutorial.html" class="admin-nav-link">Tutorial</a>
           </nav>
           <a href="/" class="link-btn admin-sidebar-back">← Back to Studio</a>
         </aside>
@@ -62,6 +69,22 @@
                 </div>
               </div>
 
+              <div class="stat-grid stat-grid-profit">
+                <div class="stat-card stat-card-cost">
+                  <span class="stat-label">Decart cost incurred (est.)</span>
+                  <span class="stat-value" id="stat-cost">—</span>
+                </div>
+                <div class="stat-card stat-card-profit">
+                  <span class="stat-label">Gross profit</span>
+                  <span class="stat-value" id="stat-profit">—</span>
+                </div>
+                <div class="stat-card stat-card-margin">
+                  <span class="stat-label">Margin</span>
+                  <span class="stat-value" id="stat-margin">—</span>
+                </div>
+              </div>
+              <p class="hint" id="margin-hint">Cost is estimated from total streaming seconds billed × your configured Decart rate and exchange rate — set these under Pricing.</p>
+
               <div class="side-card">
                 <h3>Recent activity</h3>
                 <div class="table-wrap">
@@ -79,6 +102,15 @@
                 <label class="field">
                   <span>Credits charged per second of streaming</span>
                   <input type="number" id="credits-per-second" min="0.01" step="0.01" />
+                </label>
+                <h3 class="field-group-heading">Cost basis <span class="hint-inline">(used to calculate your margin — update if Decart's rate or the exchange rate changes)</span></h3>
+                <label class="field">
+                  <span>Decart cost per second (USD)</span>
+                  <input type="number" id="decart-cost-per-second" min="0.0001" step="0.0001" />
+                </label>
+                <label class="field">
+                  <span>USD → NGN exchange rate</span>
+                  <input type="number" id="usd-to-ngn-rate" min="1" step="1" />
                 </label>
                 <button type="button" id="save-pricing-btn" class="btn btn-primary btn-sm">Save pricing</button>
                 <p id="pricing-status" class="hint status-text"></p>

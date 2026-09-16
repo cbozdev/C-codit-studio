@@ -7,8 +7,11 @@ const gateMessage = document.getElementById("gate-message");
 const adminScreen = document.getElementById("admin-screen");
 
 const creditsPerSecondInput = document.getElementById("credits-per-second");
+const decartCostPerSecondInput = document.getElementById("decart-cost-per-second");
+const usdToNgnRateInput = document.getElementById("usd-to-ngn-rate");
 const savePricingBtn = document.getElementById("save-pricing-btn");
 const pricingStatus = document.getElementById("pricing-status");
+let currentPricing = null;
 
 const packListEl = document.getElementById("admin-pack-list");
 const packStatus = document.getElementById("pack-status");
@@ -54,6 +57,9 @@ const statUsers = document.getElementById("stat-users");
 const statRevenue = document.getElementById("stat-revenue");
 const statCredits = document.getElementById("stat-credits");
 const statPacks = document.getElementById("stat-packs");
+const statCost = document.getElementById("stat-cost");
+const statProfit = document.getElementById("stat-profit");
+const statMargin = document.getElementById("stat-margin");
 
 function renderTransactionRows(transactions) {
   return transactions
@@ -95,7 +101,12 @@ function authedFetch(path, options = {}) {
 async function loadPricing() {
   const res = await authedFetch("/api/admin/pricing");
   const body = await res.json();
-  if (res.ok) creditsPerSecondInput.value = body.credits_per_second;
+  if (res.ok) {
+    currentPricing = body;
+    creditsPerSecondInput.value = body.credits_per_second;
+    decartCostPerSecondInput.value = body.decart_cost_per_second_usd;
+    usdToNgnRateInput.value = body.usd_to_ngn_rate;
+  }
 }
 
 savePricingBtn.addEventListener("click", async () => {
@@ -104,12 +115,18 @@ savePricingBtn.addEventListener("click", async () => {
   try {
     const res = await authedFetch("/api/admin/pricing", {
       method: "PUT",
-      body: JSON.stringify({ creditsPerSecond: Number(creditsPerSecondInput.value) }),
+      body: JSON.stringify({
+        creditsPerSecond: Number(creditsPerSecondInput.value),
+        decartCostPerSecondUsd: Number(decartCostPerSecondInput.value),
+        usdToNgnRate: Number(usdToNgnRateInput.value),
+      }),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.error);
     pricingStatus.textContent = "Saved.";
     pricingStatus.classList.add("status-active");
+    await loadPricing();
+    await loadOverview();
   } catch (err) {
     pricingStatus.textContent = err.message;
     pricingStatus.classList.add("status-error");
@@ -221,6 +238,22 @@ async function loadOverview() {
   statUsers.textContent = body.users.length;
   statRevenue.textContent = "₦" + revenue.toLocaleString();
   statCredits.textContent = creditsInCirculation.toLocaleString();
+
+  if (currentPricing) {
+    const creditsUsed = body.transactions
+      .filter((t) => t.type === "stream_usage")
+      .reduce((sum, t) => sum + Math.abs(t.credits || 0), 0);
+    const secondsBilled = creditsUsed / currentPricing.credits_per_second;
+    const costNgn = secondsBilled * currentPricing.decart_cost_per_second_usd * currentPricing.usd_to_ngn_rate;
+    const profit = revenue - costNgn;
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+    statCost.textContent = "₦" + costNgn.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    statProfit.textContent = "₦" + profit.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    statProfit.classList.toggle("stat-negative", profit < 0);
+    statMargin.textContent = margin.toFixed(1) + "%";
+    statMargin.classList.toggle("stat-negative", margin < 0);
+  }
 }
 
 usersTableBody.addEventListener("click", (e) => {
@@ -290,7 +323,8 @@ async function boot() {
   gateScreen.hidden = true;
   adminScreen.hidden = false;
 
-  await Promise.all([loadPricing(), loadPacks(), loadOverview()]);
+  await loadPricing();
+  await Promise.all([loadPacks(), loadOverview()]);
 }
 
 boot();

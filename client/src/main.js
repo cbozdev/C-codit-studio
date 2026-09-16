@@ -17,15 +17,22 @@ const authToggleModeBtn = document.getElementById("auth-toggle-mode");
 const authTermsRow = document.getElementById("auth-terms-row");
 const authTermsCheckbox = document.getElementById("auth-terms-checkbox");
 
-const topbar = document.getElementById("topbar");
-const studioScreen = document.getElementById("studio-screen");
+const appShell = document.getElementById("app-shell");
 const walletBalanceEl = document.getElementById("wallet-balance");
-const topupBtn = document.getElementById("topup-btn");
+const sidebarTopupBtn = document.getElementById("sidebar-topup-btn");
 const adminLink = document.getElementById("admin-link");
 const signOutBtn = document.getElementById("sign-out-btn");
 
-const topupModal = document.getElementById("topup-modal");
-const closeTopupBtn = document.getElementById("close-topup-btn");
+const appNav = document.getElementById("app-nav");
+const panelTitle = document.getElementById("panel-title");
+const panelLabels = {
+  dashboard: "Dashboard",
+  stream: "Start Stream",
+  wallet: "Wallet",
+  billing: "Billing",
+  settings: "Settings",
+};
+
 const packListEl = document.getElementById("pack-list");
 const topupStatus = document.getElementById("topup-status");
 
@@ -69,6 +76,27 @@ const obsUrlInput = document.getElementById("obs-url");
 const copyObsUrlBtn = document.getElementById("copy-obs-url");
 const obsLiveBadge = document.getElementById("obs-live-badge");
 
+const dashBalance = document.getElementById("dash-balance");
+const dashStreamedWeek = document.getElementById("dash-streamed-week");
+const dashCreditsUsed = document.getElementById("dash-credits-used");
+const dashSessions = document.getElementById("dash-sessions");
+const dashSessionsTableBody = document.querySelector("#dash-sessions-table tbody");
+
+const walletCurrentBalance = document.getElementById("wallet-current-balance");
+const walletTotalToppedUp = document.getElementById("wallet-total-topped-up");
+const walletCreditsPurchased = document.getElementById("wallet-credits-purchased");
+const recentTopupsTableBody = document.querySelector("#recent-topups-table tbody");
+
+const billingTotalSpent = document.getElementById("billing-total-spent");
+const billingCreditsPurchased = document.getElementById("billing-credits-purchased");
+const billingTransactionCount = document.getElementById("billing-transaction-count");
+const ledgerTableBody = document.querySelector("#ledger-table tbody");
+
+const settingsEmail = document.getElementById("settings-email");
+const passwordForm = document.getElementById("password-form");
+const newPasswordInput = document.getElementById("new-password");
+const passwordStatus = document.getElementById("password-status");
+
 const toastEl = document.getElementById("toast");
 
 const MAX_REFERENCE_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -85,6 +113,8 @@ let aiEffectsGeneration = 0;
 let durationTimer = null;
 let sessionStartedAt = null;
 let accessToken = null;
+let stabilizeTimer = null;
+const STABILIZE_MS = 2000; // real-time video models need a moment to converge on a new identity/look — see startStreaming()
 let authMode = "signin"; // "signin" | "signup"
 
 // ---------- Small UI helpers ----------
@@ -187,23 +217,34 @@ signOutBtn.addEventListener("click", async () => {
   await supabase.auth.signOut();
 });
 
+let currentUser = null;
+let cachedCreditsPerSecond = null;
+
+async function getCachedCreditsPerSecond() {
+  if (cachedCreditsPerSecond) return cachedCreditsPerSecond;
+  const { data } = await supabase.from("pricing_config").select("credits_per_second").eq("id", 1).single();
+  cachedCreditsPerSecond = Number(data?.credits_per_second) || 2;
+  return cachedCreditsPerSecond;
+}
+
 async function showAuthedUI(session) {
   accessToken = session.access_token;
+  currentUser = session.user;
   authScreen.hidden = true;
-  topbar.hidden = false;
-  studioScreen.hidden = false;
+  appShell.hidden = false;
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
   adminLink.hidden = profile?.role !== "admin";
 
   await refreshWallet();
+  openPanel("dashboard");
 }
 
 function showSignedOutUI() {
   accessToken = null;
+  currentUser = null;
   authScreen.hidden = false;
-  topbar.hidden = true;
-  studioScreen.hidden = true;
+  appShell.hidden = true;
 }
 
 async function refreshWallet() {
@@ -227,7 +268,83 @@ if (isSupabaseConfigured) {
   authError.textContent = "Accounts are not configured on this deployment.";
 }
 
-// ---------- Top-up ----------
+// ---------- Panel navigation ----------
+//
+// All the reads below query Supabase directly with the signed-in user's own
+// session (the anon key), never our server — Row Level Security on each
+// table only ever returns that user's own rows (see server/schema.sql), so
+// there's no way for this code to leak another user's wallet, sessions, or
+// transactions even if it tried to.
+
+function openPanel(name) {
+  appNav.querySelectorAll(".admin-nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
+  document.querySelectorAll(".app-panel").forEach((p) => (p.hidden = p.dataset.panel !== name));
+  panelTitle.textContent = panelLabels[name] || name;
+
+  if (name === "dashboard") loadDashboard();
+  else if (name === "wallet") loadWalletPanel();
+  else if (name === "billing") loadBillingPanel();
+  else if (name === "settings") loadSettingsPanel();
+}
+
+appNav.addEventListener("click", (e) => {
+  const btn = e.target.closest(".admin-nav-item");
+  if (!btn) return;
+  openPanel(btn.dataset.panel);
+});
+
+sidebarTopupBtn.addEventListener("click", () => openPanel("wallet"));
+
+// ---------- Dashboard ----------
+
+async function loadDashboard() {
+  if (!currentUser) return;
+  const creditsPerSecond = await getCachedCreditsPerSecond();
+
+  const [{ data: wallet }, { data: transactions }, { data: sessions }] = await Promise.all([
+    supabase.from("wallets").select("balance_credits").eq("user_id", currentUser.id).single(),
+    supabase
+      .from("transactions")
+      .select("type, credits, status, created_at")
+      .eq("user_id", currentUser.id)
+      .order("created_at", { ascending: false })
+      .limit(500),
+    supabase
+      .from("stream_sessions")
+      .select("started_at, credits_charged, status")
+      .eq("user_id", currentUser.id)
+      .order("started_at", { ascending: false })
+      .limit(10),
+  ]);
+
+  dashBalance.textContent = wallet?.balance_credits ?? 0;
+
+  const usageTx = (transactions || []).filter((t) => t.type === "stream_usage" && t.status === "completed");
+  const totalCreditsUsed = usageTx.reduce((sum, t) => sum + Math.abs(t.credits), 0);
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const weekCredits = usageTx
+    .filter((t) => new Date(t.created_at).getTime() >= weekAgo)
+    .reduce((sum, t) => sum + Math.abs(t.credits), 0);
+
+  dashStreamedWeek.textContent = formatDuration((weekCredits / creditsPerSecond) * 1000);
+  dashCreditsUsed.textContent = totalCreditsUsed.toLocaleString();
+  dashSessions.textContent = usageTx.length;
+
+  dashSessionsTableBody.innerHTML =
+    (sessions || [])
+      .map((s) => {
+        const seconds = Math.round(Number(s.credits_charged || 0) / creditsPerSecond);
+        return `<tr>
+          <td>${new Date(s.started_at).toLocaleString()}</td>
+          <td>${formatDuration(seconds * 1000)}</td>
+          <td>${s.credits_charged}</td>
+          <td>${s.status}</td>
+        </tr>`;
+      })
+      .join("") || '<tr><td colspan="4" class="hint">No sessions yet.</td></tr>';
+}
+
+// ---------- Wallet ----------
 
 async function loadPacks() {
   packListEl.innerHTML = "";
@@ -240,8 +357,7 @@ async function loadPacks() {
     packListEl.innerHTML = `<p class="hint status-text status-error">Could not load packs.</p>`;
     return;
   }
-  const { data: pricing } = await supabase.from("pricing_config").select("credits_per_second").eq("id", 1).single();
-  const rate = Number(pricing?.credits_per_second || 2);
+  const rate = await getCachedCreditsPerSecond();
 
   packs.forEach((pack) => {
     const seconds = Math.floor(pack.credits / rate);
@@ -282,23 +398,115 @@ packListEl.addEventListener("click", async (e) => {
   }
 });
 
-topupBtn.addEventListener("click", () => {
-  topupModal.hidden = false;
+async function loadWalletPanel() {
+  if (!currentUser) return;
+  const [{ data: wallet }, { data: topups }] = await Promise.all([
+    supabase.from("wallets").select("balance_credits").eq("user_id", currentUser.id).single(),
+    supabase
+      .from("transactions")
+      .select("credits, amount_ngn, status, created_at")
+      .eq("user_id", currentUser.id)
+      .eq("type", "topup")
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
+
+  walletCurrentBalance.textContent = wallet?.balance_credits ?? 0;
+
+  const completed = (topups || []).filter((t) => t.status === "completed");
+  const totalToppedUp = completed.reduce((sum, t) => sum + (t.amount_ngn || 0), 0);
+  const creditsPurchased = completed.reduce((sum, t) => sum + t.credits, 0);
+
+  walletTotalToppedUp.textContent = "₦" + totalToppedUp.toLocaleString();
+  walletCreditsPurchased.textContent = creditsPurchased.toLocaleString();
+
+  recentTopupsTableBody.innerHTML =
+    (topups || [])
+      .slice(0, 10)
+      .map(
+        (t) => `<tr>
+          <td>${new Date(t.created_at).toLocaleString()}</td>
+          <td>${t.credits}</td>
+          <td>₦${(t.amount_ngn || 0).toLocaleString()}</td>
+          <td>${t.status}</td>
+        </tr>`
+      )
+      .join("") || '<tr><td colspan="4" class="hint">No top-ups yet.</td></tr>';
+
   topupStatus.textContent = "";
-  loadPacks();
-});
-closeTopupBtn.addEventListener("click", () => (topupModal.hidden = true));
-topupModal.addEventListener("click", (e) => {
-  if (e.target === topupModal) topupModal.hidden = true;
-});
+  await loadPacks();
+}
 
 // Korapay redirects back here after checkout — refresh the balance (the
 // webhook is what actually credited it, this just re-fetches to show it).
 if (new URLSearchParams(window.location.search).get("topup") === "complete") {
   showToast("Payment received — refreshing balance...");
   window.history.replaceState({}, "", window.location.pathname);
-  setTimeout(refreshWallet, 1500);
+  setTimeout(() => {
+    refreshWallet();
+    if (document.querySelector('.admin-nav-item[data-panel="wallet"]')?.classList.contains("active")) {
+      loadWalletPanel();
+    }
+  }, 1500);
 }
+
+// ---------- Billing ----------
+
+async function loadBillingPanel() {
+  if (!currentUser) return;
+  const { data: transactions } = await supabase
+    .from("transactions")
+    .select("type, credits, amount_ngn, status, created_at")
+    .eq("user_id", currentUser.id)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  const topups = (transactions || []).filter((t) => t.type === "topup" && t.status === "completed");
+  const totalSpent = topups.reduce((sum, t) => sum + (t.amount_ngn || 0), 0);
+  const creditsPurchased = topups.reduce((sum, t) => sum + t.credits, 0);
+
+  billingTotalSpent.textContent = "₦" + totalSpent.toLocaleString();
+  billingCreditsPurchased.textContent = creditsPurchased.toLocaleString();
+  billingTransactionCount.textContent = (transactions || []).length;
+
+  ledgerTableBody.innerHTML =
+    (transactions || [])
+      .map(
+        (t) => `<tr>
+          <td>${new Date(t.created_at).toLocaleString()}</td>
+          <td>${t.type}</td>
+          <td>${t.credits}</td>
+          <td>${t.amount_ngn ? "₦" + t.amount_ngn.toLocaleString() : "—"}</td>
+          <td>${t.status}</td>
+        </tr>`
+      )
+      .join("") || '<tr><td colspan="5" class="hint">No transactions yet.</td></tr>';
+}
+
+// ---------- Settings ----------
+
+function loadSettingsPanel() {
+  settingsEmail.textContent = currentUser?.email || "";
+}
+
+passwordForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  passwordStatus.textContent = "Updating...";
+  passwordStatus.classList.remove("status-error", "status-active");
+  try {
+    // Supabase Auth's own secure endpoint — operates on the caller's own
+    // active session, so this can only ever change the signed-in user's own
+    // password.
+    const { error } = await supabase.auth.updateUser({ password: newPasswordInput.value });
+    if (error) throw error;
+    passwordStatus.textContent = "Password updated.";
+    passwordStatus.classList.add("status-active");
+    passwordForm.reset();
+  } catch (err) {
+    passwordStatus.textContent = err.message;
+    passwordStatus.classList.add("status-error");
+  }
+});
 
 // ---------- OBS URL ----------
 
@@ -382,10 +590,26 @@ aiPromptInput.addEventListener("change", syncLiveState);
 aiEnhanceInput.addEventListener("change", syncLiveState);
 
 // Our own interpretation of a "realism" dial on top of Lucy 2.5's plain
-// prompt/enhance API (there's no native realism parameter) — higher values
-// stay closer to an untouched, natural look; lower values push more visible
-// enhancement while still keeping the person recognizable.
-function realisticPromptFor(level) {
+// prompt/enhance API (there's no native realism parameter).
+//
+// These two variants mean different things and must not be mixed: with no
+// reference image, higher values mean "stay closer to my own untouched
+// face." With a reference image, the person is already being replaced, so
+// "stay close to the untouched camera feed" directly contradicts the swap
+// instruction — the model ends up honoring neither, landing on a third,
+// unrelated face (the exact "wrong identity" bug this was rewritten to fix).
+// With an image, higher values instead mean "integrate the reference
+// person subtly/naturally" rather than "barely change the original".
+function realisticPromptFor(level, hasImage) {
+  if (hasImage) {
+    if (level >= 8) {
+      return "Blend the substituted person naturally into the scene, matching the original lighting and camera angle, so the result looks like an authentic, unedited recording of them.";
+    }
+    if (level >= 4) {
+      return "Integrate the substituted person into the scene with moderate lighting and color adjustment to match their surroundings.";
+    }
+    return "Apply noticeably stylized lighting and color grading around the substituted person while keeping them clearly recognizable as the reference photo.";
+  }
   if (level >= 8) {
     return "Keep the person looking completely natural and true to life. Apply only very subtle lighting and clarity enhancement — the result should be barely distinguishable from the raw camera feed.";
   }
@@ -399,7 +623,7 @@ function currentPromptAndEnhance() {
   let prompt;
   let enhance;
   if (mode === "realistic") {
-    prompt = realisticPromptFor(Number(realismSlider.value));
+    prompt = realisticPromptFor(Number(realismSlider.value), Boolean(referenceImageFile));
     enhance = true;
   } else {
     prompt = aiPromptInput.value.trim() || "Subtle cinematic color grade";
@@ -412,7 +636,14 @@ function currentPromptAndEnhance() {
   // prior output). Whenever an image is attached, always lead with an
   // explicit substitution instruction so the two stay in sync.
   if (referenceImageFile) {
-    prompt = `Substitute the person in the video with the person shown in the reference image, preserving their real pose, motion, and expressions. ${prompt}`;
+    prompt = `Substitute the person in the video with the person shown in the reference image, preserving their real pose, motion, and expressions, and closely matching their hair, skin tone, and facial features. ${prompt}`;
+    // "Enhance" runs our prompt through Decart's own LLM to rewrite it
+    // before it reaches the video model — useful for vague prompts, but it
+    // means the *actual* prompt varies slightly between connections even
+    // though our input text doesn't. For a swap, where we already give a
+    // specific, detailed instruction, that variance is exactly what causes
+    // "sometimes locks onto the reference face fast, sometimes doesn't."
+    enhance = false;
   }
 
   return { prompt, enhance };
@@ -568,14 +799,42 @@ async function startStreaming() {
   const myGeneration = ++aiEffectsGeneration;
   const { prompt, enhance } = currentPromptAndEnhance();
 
+  // Viewers (OBS) find us by polling the server for a published
+  // subscribeToken — so holding that publish until stabilization completes
+  // means a viewer can never subscribe into the rough warm-up frames in the
+  // first place, not just have them hidden in our own local preview.
+  let pendingSubscribeToken = null;
+  let stabilized = false;
+
+  function publishWhenReady() {
+    if (stabilized && pendingSubscribeToken) {
+      publishStreamSession(pendingSubscribeToken);
+      obsLiveBadge.hidden = false;
+    }
+  }
+
   const instance = new DecartEffects();
   instance.addEventListener("stream", (e) => {
     if (myGeneration !== aiEffectsGeneration) return;
     outputPreview.srcObject = e.detail.stream;
-    outputPlaceholder.hidden = true;
-    setStreamStatus("Lucy 2.5 is live.", "active");
-    sessionStatusEl.textContent = "Live";
-    setHeaderStatus("Live", true);
+    // Real-time video models take a moment to converge on a new identity —
+    // the first frames after (re)connecting can show a rough or unrelated
+    // face. Keep the placeholder up over the (already-playing) feed for a
+    // couple seconds so viewers only ever see the settled result, rather
+    // than exposing that warm-up period.
+    outputPlaceholder.hidden = false;
+    outputPlaceholder.textContent = "Stabilizing output...";
+    setStreamStatus("Connecting to Lucy 2.5...");
+    clearTimeout(stabilizeTimer);
+    stabilizeTimer = setTimeout(() => {
+      if (myGeneration !== aiEffectsGeneration) return;
+      outputPlaceholder.hidden = true;
+      setStreamStatus("Lucy 2.5 is live.", "active");
+      sessionStatusEl.textContent = "Live";
+      setHeaderStatus("Live", true);
+      stabilized = true;
+      publishWhenReady();
+    }, STABILIZE_MS);
   });
   instance.addEventListener("error", (e) => {
     if (myGeneration !== aiEffectsGeneration) return;
@@ -589,8 +848,8 @@ async function startStreaming() {
   });
   instance.addEventListener("subscribe-token", (e) => {
     if (myGeneration !== aiEffectsGeneration) return;
-    publishStreamSession(e.detail.subscribeToken);
-    obsLiveBadge.hidden = false;
+    pendingSubscribeToken = e.detail.subscribeToken;
+    publishWhenReady();
   });
   instance.addEventListener("balance", (e) => {
     if (myGeneration !== aiEffectsGeneration) return;
@@ -632,6 +891,7 @@ async function startStreaming() {
 
 async function stopStreaming() {
   aiEffectsGeneration++;
+  clearTimeout(stabilizeTimer);
   if (decart) {
     await decart.stop();
     decart = null;
@@ -640,6 +900,7 @@ async function stopStreaming() {
   obsLiveBadge.hidden = true;
   outputPreview.srcObject = null;
   outputPlaceholder.hidden = false;
+  outputPlaceholder.textContent = "Your transformed feed appears here";
   streamToggleBtn.textContent = "Start stream";
   streamToggleBtn.classList.remove("active");
   setStreamStatus("Idle — not streaming.");

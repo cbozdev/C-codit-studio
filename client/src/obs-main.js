@@ -1,5 +1,6 @@
 import "./obs-style.css";
 import { DecartViewer } from "./decart.js";
+import { apiUrl } from "./api.js";
 
 const POLL_INTERVAL_MS = 2000;
 
@@ -54,7 +55,7 @@ async function startViewer(subscribeToken) {
 
 async function poll() {
   try {
-    const res = await fetch("/api/stream-session");
+    const res = await fetch(apiUrl("/api/stream-session"));
     const session = await res.json();
 
     if (session.active && session.subscribeToken) {
