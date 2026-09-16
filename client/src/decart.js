@@ -1,4 +1,5 @@
 import { createDecartClient, models } from "@decartai/sdk";
+import { apiUrl } from "./api.js";
 
 const MODEL_ID = "lucy-2.5";
 
@@ -18,21 +19,37 @@ export class DecartEffects extends EventTarget {
     super();
     this.model = models.realtime(MODEL_ID);
     this.session = null;
+    this.sessionId = null;
+    this.accessToken = null;
+    this.maxSeconds = null;
   }
 
   get isActive() {
     return Boolean(this.session);
   }
 
-  async start(localStream, { prompt, enhance, image }) {
+  /**
+   * `accessToken` is the signed-in user's Supabase session token. Starting a
+   * session here reserves credits from their wallet server-side (based on
+   * their current balance) before Decart is ever contacted — the browser
+   * has no way to start a session it can't pay for.
+   */
+  async start(localStream, { prompt, enhance, image, accessToken }) {
     if (this.session) await this.stop();
+    this.accessToken = accessToken;
 
-    const tokenRes = await fetch("/api/decart-token", { method: "POST" });
+    const tokenRes = await fetch(apiUrl("/api/stream/start"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
     if (!tokenRes.ok) {
       const body = await tokenRes.json().catch(() => ({}));
-      throw new Error(body.error || "Could not get a Decart access token from the server.");
+      throw new Error(body.error || "Could not start a billed stream session.");
     }
     const token = await tokenRes.json();
+    this.sessionId = token.sessionId;
+    this.maxSeconds = token.maxSeconds;
+    this.dispatchEvent(new CustomEvent("balance", { detail: { balance: token.balance } }));
 
     // Use `.apiKey` (a short-lived "ek_..." credential), not `.token` — the
     // latter is a JWT mirroring the same credential for offline/server-side
@@ -110,6 +127,28 @@ export class DecartEffects extends EventTarget {
       }
     }
     this.session = null;
+
+    // Tells the server to stop the billing clock and refund whatever part
+    // of the up-front reservation wasn't actually used. The server computes
+    // this from its own started_at timestamp, not from anything reported
+    // here, so there's nothing to gain by skipping or delaying this call.
+    if (this.sessionId && this.accessToken) {
+      try {
+        const res = await fetch(apiUrl("/api/stream/stop"), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${this.accessToken}`, "content-type": "application/json" },
+          body: JSON.stringify({ sessionId: this.sessionId }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok) {
+          this.dispatchEvent(new CustomEvent("billed", { detail: body }));
+        }
+      } catch (err) {
+        console.warn("Error finalizing stream billing", err);
+      }
+    }
+    this.sessionId = null;
+    this.accessToken = null;
   }
 }
 
@@ -135,7 +174,7 @@ export class DecartViewer extends EventTarget {
   async start(subscribeToken) {
     if (this.subscriber) await this.stop();
 
-    const tokenRes = await fetch("/api/decart-token", { method: "POST" });
+    const tokenRes = await fetch(apiUrl("/api/decart-token"), { method: "POST" });
     if (!tokenRes.ok) {
       const body = await tokenRes.json().catch(() => ({}));
       throw new Error(body.error || "Could not get a Decart access token from the server.");
