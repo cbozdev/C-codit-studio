@@ -9,7 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@decartai/sdk": "^0.2.0"
+    "@decartai/sdk": "^0.2.0",
+    "@supabase/supabase-js": "^2.116.0"
   },
   "devDependencies": {
     "vite": "^8.3.0"
