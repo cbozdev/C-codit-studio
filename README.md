@@ -1,8 +1,9 @@
 # C Studio
 
-A single-user studio for live AI video effects, powered by
+A paid, multi-user studio for live AI video effects, powered by
 [Decart's Lucy 2.5](https://platform.decart.ai) real-time model, built to
 feed **any** streaming or call app through OBS — not to be a call app itself.
+Users sign up, buy credits, and pay per second of active streaming.
 
 Point your camera at the Studio page, pick a look, click **Start stream**,
 then add the (permanent) output URL to OBS as a Browser Source and turn on
@@ -13,12 +14,37 @@ just see a regular webcam.
 
 ```
 ai-video-call/
-├── server/   Decart token minting + a tiny stream-session relay
+├── server/   Express API: Decart token minting, wallet/billing, admin, Korapay
 └── client/
-    ├── index.html   The Studio: camera + AI output preview, controls, OBS setup panel
-    └── obs.html     The Output page: what you actually put in OBS — video only, no UI
+    ├── index.html   The Studio: sign in, camera + AI output preview, controls, wallet, OBS setup
+    ├── obs.html     The Output page: what you actually put in OBS — video only, no UI
+    └── admin.html   Admin panel: pricing, top-up packs, users, transactions
 ```
 
+- **Accounts & database**: [Supabase](https://supabase.com) — Postgres +
+  Auth. The browser talks to Supabase directly (with the public `anon` key)
+  only for signing in and reading its own/public rows (profile, wallet
+  balance, packs, pricing) — every table is locked down with Row Level
+  Security (see `server/schema.sql`). The server uses the `service_role` key
+  (bypasses RLS) for every write that touches money.
+- **Billing model**: pay-per-second, pre-authorized. Starting a stream
+  (`POST /api/stream/start`) computes the max seconds the user's current
+  balance can afford, reserves that many credits atomically
+  (`reserve_wallet_credits` — see `server/schema-functions.sql`, prevents a
+  double-spend race from two rapid clicks), and caps the Decart session to
+  exactly that duration via `maxSessionDuration` — Decart itself hard-stops
+  it, independent of anything the client does. Stopping
+  (`POST /api/stream/stop`) refunds whatever wasn't used, based on the
+  server's own clock (`started_at` in the database), never on a duration the
+  browser reports.
+- **Payments**: [Korapay](https://korapay.com) hosted checkout. Topping up
+  looks up the pack price server-side (never trusts a client-submitted
+  amount), and a wallet is only ever credited by a **signature-verified**
+  webhook (`POST /api/webhooks/korapay`, HMAC-SHA256 over the payload's
+  `data` object) — never by anything the browser itself reports back.
+- **Admin** (`admin.html`): gated on `profiles.role = 'admin'`, checked
+  server-side on every admin route. Controls the credits-per-second rate and
+  top-up packs, and shows all users/transactions.
 - **Studio page** (`index.html`): captures your camera, connects to Lucy 2.5
   directly in the browser (`@decartai/sdk`), and shows your raw camera next
   to the live transformed output.
@@ -30,14 +56,74 @@ ai-video-call/
   with the producer's `subscribeToken`). The server just relays which
   session is currently live (`GET/POST/DELETE /api/stream-session`), so the
   same OBS URL keeps working across every new stream you start — you add it
-  to OBS once.
-- **Security**: the permanent `DECART_API_KEY` lives only on the server.
-  Both pages get a short-lived, scoped client token via
-  `POST /api/decart-token`.
+  to OBS once. Minting a token for this endpoint requires a currently-live
+  session, so it can't be used to mint free Decart credentials against your
+  account with nothing backing them.
+- **Security**: the permanent `DECART_API_KEY` and Supabase `service_role`
+  key live only on the server, never the browser.
 
-No accounts, no billing, no credits — this is a local, single-user tool.
+## First-time setup after a fresh deploy
 
-## Setup
+1. Run `server/schema.sql` then `server/schema-functions.sql` in Supabase's
+   SQL Editor (in that order) — creates tables, RLS policies, starter packs,
+   and the atomic wallet functions.
+2. Sign up for an account through the Studio's normal sign-up form.
+3. Promote that account to admin — run in Supabase SQL Editor:
+   ```sql
+   update public.profiles set role = 'admin' where email = 'you@example.com';
+   ```
+4. Add real Korapay keys (`KORAPAY_SECRET_KEY`, `KORAPAY_PUBLIC_KEY`,
+   `KORAPAY_WEBHOOK_SECRET`) once you have them — top-ups return a 503 until
+   then. In Korapay's dashboard, point the webhook URL at
+   `https://<your-backend>/api/webhooks/korapay`.
+
+## Live deployment
+
+- **Frontend**: https://c-coditstudio.com — static files (`client/dist`)
+  hosted on cPanel shared hosting (`public_html`), uploaded via SFTP.
+- **Backend**: https://c-studio-api.onrender.com — the Express API deployed
+  from [github.com/cbozdev/C-codit-studio](https://github.com/cbozdev/C-codit-studio)
+  (root dir `server`) as a Render Web Service, free plan.
+
+They're split across two hosts because this cPanel plan's server doesn't
+have Node.js Selector installed (verified directly — the `Cpanel::API::NodeJS`
+Perl module isn't present), so it can only serve static files, not run the
+Express server. The two talk to each other cross-origin: the frontend is
+built with `VITE_API_BASE_URL` pointing at the Render URL, and the backend's
+`CLIENT_ORIGIN` allows both `https://c-coditstudio.com` and
+`https://www.c-coditstudio.com` via CORS.
+
+### Redeploying after a change
+
+**Backend**: push to `main` on the GitHub repo above — Render auto-deploys
+on every push (`autoDeploy: yes`).
+
+```bash
+git add -A && git commit -m "..." && git push
+```
+
+(Note: this Mac doesn't have Xcode Command Line Tools installed, so
+`git`/local commits won't work until that's set up — `xcode-select --install`.
+Until then, pushing changes means re-uploading files through GitHub's API or
+web UI.)
+
+**Frontend**: rebuild with the production API URL, then re-upload `dist/` to
+cPanel via SFTP:
+
+```bash
+cd client
+VITE_API_BASE_URL="https://c-studio-api.onrender.com" npm run build
+# then upload dist/index.html, dist/obs.html, and dist/assets/ to public_html via SFTP
+```
+
+### A note on Render's free tier
+
+Free web services on Render spin down after inactivity and take ~30–60s to
+wake back up on the next request. The first "Start stream" click after a
+period of no traffic may feel slow while the backend wakes up — subsequent
+requests are fast. Upgrading to a paid Render plan removes this.
+
+## Local setup
 
 Requires Node.js 18+.
 
