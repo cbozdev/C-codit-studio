@@ -1210,6 +1210,23 @@ input[type="range"] {
   color: var(--text);
 }
 
+.legal-content a {
+  color: var(--accent);
+}
+
+.legal-content a:hover {
+  color: var(--accent-hover);
+}
+
+.app-footer a {
+  color: var(--text-faint);
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  color: var(--text);
+}
+
 .video-placeholder {
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-lg);
