@@ -73,6 +73,143 @@ body {
     var(--surface);
   border-right: 1px solid var(--border);
   position: relative;
+  overflow: hidden;
+}
+
+.auth-showcase-content {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.4;
+  animation: ambient-drift 26s ease-in-out infinite;
+}
+
+.ambient-orb-1 {
+  width: 340px;
+  height: 340px;
+  top: -100px;
+  left: -80px;
+  background: radial-gradient(circle, var(--accent), transparent 70%);
+  animation-duration: 24s;
+}
+
+.ambient-orb-2 {
+  width: 280px;
+  height: 280px;
+  bottom: -80px;
+  right: -60px;
+  background: radial-gradient(circle, #3a7ca5, transparent 70%);
+  animation-duration: 32s;
+  animation-delay: -8s;
+}
+
+.ambient-orb-3 {
+  width: 220px;
+  height: 220px;
+  top: 42%;
+  left: 55%;
+  background: radial-gradient(circle, var(--accent-hover), transparent 70%);
+  animation-duration: 29s;
+  animation-delay: -14s;
+  opacity: 0.3;
+}
+
+@keyframes ambient-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(34px, -24px) scale(1.08);
+  }
+  66% {
+    transform: translate(-22px, 22px) scale(0.94);
+  }
+}
+
+.ambient-particle {
+  position: absolute;
+  bottom: -10px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  animation: ambient-rise linear infinite;
+}
+
+@keyframes ambient-rise {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  85% {
+    opacity: 0.25;
+  }
+  100% {
+    transform: translateY(-460px) scale(0.6);
+    opacity: 0;
+  }
+}
+
+.ambient-particle.p1 {
+  left: 12%;
+  animation-duration: 14s;
+  animation-delay: -1s;
+}
+.ambient-particle.p2 {
+  left: 28%;
+  width: 4px;
+  height: 4px;
+  animation-duration: 18s;
+  animation-delay: -6s;
+}
+.ambient-particle.p3 {
+  left: 45%;
+  animation-duration: 12s;
+  animation-delay: -3s;
+}
+.ambient-particle.p4 {
+  left: 63%;
+  width: 2px;
+  height: 2px;
+  animation-duration: 16s;
+  animation-delay: -9s;
+}
+.ambient-particle.p5 {
+  left: 78%;
+  animation-duration: 20s;
+  animation-delay: -4s;
+}
+.ambient-particle.p6 {
+  left: 90%;
+  width: 4px;
+  height: 4px;
+  animation-duration: 15s;
+  animation-delay: -11s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-orb,
+  .ambient-particle {
+    animation: none;
+  }
 }
 
 .auth-showcase-headline {
