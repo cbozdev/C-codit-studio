@@ -117,6 +117,7 @@ const sessionDurationEl = document.getElementById("session-duration");
 const sessionUsageEl = document.getElementById("session-usage");
 
 const obsUrlInput = document.getElementById("obs-url");
+const openOutputPreviewLink = document.getElementById("open-output-preview");
 const copyObsUrlBtn = document.getElementById("copy-obs-url");
 const obsLiveBadge = document.getElementById("obs-live-badge");
 
@@ -332,6 +333,7 @@ async function showAuthedUI(session) {
   authScreen.hidden = true;
   appShell.hidden = false;
   obsUrlInput.value = `${window.location.origin}/obs.html?u=${currentUser.id}`;
+  openOutputPreviewLink.href = `/obs.html?u=${currentUser.id}`;
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
   adminLink.hidden = profile?.role !== "admin";
