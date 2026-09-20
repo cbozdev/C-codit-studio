@@ -47,15 +47,16 @@
             <h1>C Studio</h1>
           </div>
           <h2 id="auth-heading" class="auth-heading">Sign in</h2>
-          <p class="hint">Sign in to start streaming.</p>
+          <p class="hint" id="auth-subheading">Sign in to start streaming.</p>
           <form id="auth-form">
-            <label class="field">
+            <label class="field" id="auth-email-field">
               <span>Email</span>
               <input type="email" id="auth-email" required autocomplete="email" placeholder="you@example.com" />
             </label>
-            <label class="field">
+            <label class="field" id="auth-password-field">
               <span>Password</span>
-              <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" placeholder="At least 6 characters" />
+              <input type="password" id="auth-password" minlength="6" autocomplete="current-password" placeholder="At least 6 characters" />
+              <button type="button" id="auth-forgot-btn" class="link-btn auth-forgot-link">Forgot password?</button>
             </label>
             <label class="switch" id="auth-terms-row" hidden>
               <input type="checkbox" id="auth-terms-checkbox" />
@@ -239,6 +240,8 @@
                     <span id="connection-status" class="hint-inline"></span>
                   </div>
 
+                  <p id="low-balance-warning" class="hint status-text status-error" hidden></p>
+
                   <button type="button" id="stream-toggle-btn" class="btn btn-primary btn-lg">Start stream</button>
                   <p id="stream-status" class="hint status-text">Idle — not streaming.</p>
                 </div>
@@ -375,6 +378,20 @@
                   <a href="/privacy.html" class="link-btn">Privacy Policy</a> ·
                   <a href="/refunds.html" class="link-btn">Refund Policy</a>
                 </p>
+              </div>
+
+              <div class="side-card side-card-danger">
+                <h3>Danger zone</h3>
+                <p class="hint">
+                  Deleting your account permanently removes your profile, wallet balance, and transaction
+                  history. This can't be undone.
+                </p>
+                <label class="field">
+                  <span>Type your email to confirm</span>
+                  <input type="email" id="delete-account-confirm" autocomplete="off" placeholder="you@example.com" />
+                </label>
+                <button type="button" id="delete-account-btn" class="btn btn-ghost btn-sm btn-danger">Delete my account</button>
+                <p id="delete-account-status" class="hint status-text"></p>
               </div>
             </section>
           </div>

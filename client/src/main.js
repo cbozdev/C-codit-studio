@@ -9,8 +9,12 @@ import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
 const authScreen = document.getElementById("auth-screen");
 const authForm = document.getElementById("auth-form");
 const authHeading = document.getElementById("auth-heading");
+const authSubheading = document.getElementById("auth-subheading");
+const authEmailField = document.getElementById("auth-email-field");
 const authEmailInput = document.getElementById("auth-email");
+const authPasswordField = document.getElementById("auth-password-field");
 const authPasswordInput = document.getElementById("auth-password");
+const authForgotBtn = document.getElementById("auth-forgot-btn");
 const authSubmitBtn = document.getElementById("auth-submit-btn");
 const authError = document.getElementById("auth-error");
 const authToggleModeBtn = document.getElementById("auth-toggle-mode");
@@ -71,6 +75,19 @@ const streamStatus = document.getElementById("stream-status");
 
 const testConnectionBtn = document.getElementById("test-connection-btn");
 const connectionStatusEl = document.getElementById("connection-status");
+const lowBalanceWarningEl = document.getElementById("low-balance-warning");
+
+const LOW_BALANCE_SECONDS = 30;
+
+function updateLowBalanceWarning(balance, creditsPerSecond) {
+  const secondsLeft = Number(balance || 0) / creditsPerSecond;
+  if (secondsLeft < LOW_BALANCE_SECONDS) {
+    lowBalanceWarningEl.textContent = `Low balance — only ${Math.floor(secondsLeft)}s of streaming left. Top up to avoid an interrupted session.`;
+    lowBalanceWarningEl.hidden = false;
+  } else {
+    lowBalanceWarningEl.hidden = true;
+  }
+}
 
 const QUALITY_LABELS = { good: "Good", fair: "Fair", poor: "Poor", critical: "No connectivity" };
 const TRANSPORT_LABELS = { udp: "direct connection", relay: "relayed — adds latency", failed: "no path found" };
@@ -124,6 +141,9 @@ const ledgerTableBody = document.querySelector("#ledger-table tbody");
 const settingsEmail = document.getElementById("settings-email");
 const passwordForm = document.getElementById("password-form");
 const newPasswordInput = document.getElementById("new-password");
+const deleteAccountConfirmInput = document.getElementById("delete-account-confirm");
+const deleteAccountBtn = document.getElementById("delete-account-btn");
+const deleteAccountStatus = document.getElementById("delete-account-status");
 const passwordStatus = document.getElementById("password-status");
 
 const toastEl = document.getElementById("toast");
@@ -144,7 +164,7 @@ let sessionStartedAt = null;
 let accessToken = null;
 let stabilizeTimer = null;
 const STABILIZE_MS = 2000; // real-time video models need a moment to converge on a new identity/look — see startStreaming()
-let authMode = "signin"; // "signin" | "signup"
+let authMode = "signin"; // "signin" | "signup" | "reset" | "recovery"
 
 // ---------- Small UI helpers ----------
 
@@ -185,25 +205,47 @@ function formatTimeLeft(credits, creditsPerSecond) {
 
 // ---------- Auth ----------
 
+const AUTH_COPY = {
+  signin: { heading: "Sign in", sub: "Sign in to start streaming.", submit: "Sign in" },
+  signup: { heading: "Create your account", sub: "Create an account to start streaming.", submit: "Create account" },
+  reset: { heading: "Reset your password", sub: "Enter your email and we'll send you a reset link.", submit: "Send reset link" },
+  recovery: { heading: "Set a new password", sub: "Choose a new password for your account.", submit: "Update password" },
+};
+
 function setAuthMode(newMode) {
   authMode = newMode;
-  authHeading.textContent = authMode === "signin" ? "Sign in" : "Create your account";
-  authSubmitBtn.textContent = authMode === "signin" ? "Sign in" : "Create account";
-  authToggleModeBtn.textContent =
-    authMode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in";
-  authTermsRow.hidden = authMode !== "signup";
+  const copy = AUTH_COPY[authMode];
+  authHeading.textContent = copy.heading;
+  authSubheading.textContent = copy.sub;
+  authSubmitBtn.textContent = copy.submit;
+
   // A `required` field inside a hidden container can't be focused, so
   // browsers silently refuse to submit the form at all when it's invalid —
-  // no error, no event, nothing. Only mark it required while it's actually
-  // visible (signup mode).
+  // no error, no event, nothing (bit us once already with the terms
+  // checkbox). Every field below only gets `required` while actually visible.
+  authEmailField.hidden = authMode === "recovery";
+  authEmailInput.required = authMode !== "recovery";
+
+  authPasswordField.hidden = authMode === "reset";
+  authPasswordInput.required = authMode !== "reset";
+
+  authForgotBtn.hidden = authMode !== "signin";
+  authTermsRow.hidden = authMode !== "signup";
   authTermsCheckbox.required = authMode === "signup";
+
+  authToggleModeBtn.hidden = authMode === "recovery";
+  authToggleModeBtn.textContent =
+    authMode === "signup" ? "Already have an account? Sign in" : "Need an account? Sign up";
+
   authError.hidden = true;
 }
 setAuthMode("signin");
 
 authToggleModeBtn.addEventListener("click", () => {
-  setAuthMode(authMode === "signin" ? "signup" : "signin");
+  setAuthMode(authMode === "signup" ? "signin" : authMode === "signin" ? "signup" : "signin");
 });
+
+authForgotBtn.addEventListener("click", () => setAuthMode("reset"));
 
 authForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -216,6 +258,25 @@ authForm.addEventListener("submit", async (e) => {
   authSubmitBtn.textContent = "Please wait...";
 
   try {
+    if (authMode === "reset") {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/",
+      });
+      if (error) throw error;
+      showToast("Check your email for a password reset link.");
+      setAuthMode("signin");
+      return;
+    }
+
+    if (authMode === "recovery") {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      const { data: sessionData } = await supabase.auth.getSession();
+      showToast("Password updated.");
+      if (sessionData.session) await showAuthedUI(sessionData.session);
+      return;
+    }
+
     const { data, error } =
       authMode === "signin"
         ? await supabase.auth.signInWithPassword({ email, password })
@@ -294,6 +355,7 @@ async function refreshWallet() {
       walletBalanceEl.textContent = body.balanceCredits;
       const rate = await getCachedCreditsPerSecond();
       walletBalanceTimeEl.textContent = formatTimeLeft(body.balanceCredits, rate);
+      updateLowBalanceWarning(body.balanceCredits, rate);
     }
   } catch (err) {
     console.warn("Could not refresh wallet", err);
@@ -301,7 +363,17 @@ async function refreshWallet() {
 }
 
 if (isSupabaseConfigured) {
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
+    // Clicking the emailed reset link signs the user into a temporary
+    // recovery session — show the "set a new password" form instead of
+    // dropping them straight into the dashboard with a password they
+    // never chose.
+    if (event === "PASSWORD_RECOVERY") {
+      authScreen.hidden = false;
+      appShell.hidden = true;
+      setAuthMode("recovery");
+      return;
+    }
     if (session) showAuthedUI(session);
     else showSignedOutUI();
   });
@@ -550,6 +622,36 @@ passwordForm.addEventListener("submit", async (e) => {
   } catch (err) {
     passwordStatus.textContent = err.message;
     passwordStatus.classList.add("status-error");
+  }
+});
+
+deleteAccountBtn.addEventListener("click", async () => {
+  const typed = deleteAccountConfirmInput.value.trim().toLowerCase();
+  if (!typed || typed !== (currentUser?.email || "").toLowerCase()) {
+    deleteAccountStatus.textContent = "Type your account email exactly to confirm.";
+    deleteAccountStatus.classList.add("status-error");
+    deleteAccountStatus.classList.remove("status-active");
+    return;
+  }
+  if (!window.confirm("This permanently deletes your account and all data. Are you sure?")) return;
+
+  deleteAccountBtn.disabled = true;
+  deleteAccountStatus.textContent = "Deleting...";
+  deleteAccountStatus.classList.remove("status-error", "status-active");
+  try {
+    if (decart?.isActive) await stopStreaming();
+    const res = await fetch(apiUrl("/api/account"), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "Could not delete account.");
+    await supabase.auth.signOut();
+    showToast("Your account has been deleted.");
+  } catch (err) {
+    deleteAccountStatus.textContent = err.message;
+    deleteAccountStatus.classList.add("status-error");
+    deleteAccountBtn.disabled = false;
   }
 });
 
@@ -901,6 +1003,7 @@ async function startStreaming() {
     walletBalanceEl.textContent = e.detail.balance;
     const rate = await getCachedCreditsPerSecond();
     walletBalanceTimeEl.textContent = formatTimeLeft(e.detail.balance, rate);
+    updateLowBalanceWarning(e.detail.balance, rate);
   });
   instance.addEventListener("billed", (e) => {
     if (myGeneration !== aiEffectsGeneration) return;

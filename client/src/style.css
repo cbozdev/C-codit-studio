@@ -284,6 +284,13 @@ body {
   margin-top: 4px;
 }
 
+.auth-forgot-link {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  text-align: right;
+}
+
 .auth-legal-footer {
   margin: 20px 0 0;
   font-size: 11.5px;
@@ -741,6 +748,20 @@ input[type="range"] {
 .btn-ghost:hover {
   border-color: var(--border-strong);
   color: var(--text);
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: var(--danger);
+  color: var(--bg);
+}
+
+.side-card-danger {
+  border-color: rgba(217, 105, 95, 0.35);
 }
 
 .btn-sm {

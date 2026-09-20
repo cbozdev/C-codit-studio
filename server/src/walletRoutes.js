@@ -4,13 +4,14 @@ import { requireAuth } from "./authMiddleware.js";
 import { getSupabaseAdmin } from "./supabase.js";
 import { adjustBalance, recordTransaction } from "./wallet.js";
 import { initializeCharge, verifyWebhookSignature } from "./korapay.js";
+import { topupLimiter } from "./rateLimit.js";
 
 export const walletRouter = express.Router();
 
 // Starts a top-up: looks up the pack SERVER-SIDE by id (never trusts a
 // client-submitted price or credit amount) and asks Korapay for a hosted
 // checkout link.
-walletRouter.post("/topup", requireAuth, async (req, res) => {
+walletRouter.post("/topup", requireAuth, topupLimiter, async (req, res) => {
   try {
     const { packId } = req.body || {};
     if (!packId) return res.status(400).json({ error: "packId is required." });

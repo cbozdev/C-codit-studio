@@ -3,6 +3,7 @@ import { requireAuth } from "./authMiddleware.js";
 import { getSupabaseAdmin } from "./supabase.js";
 import { getCreditsPerSecond, reserveCredits, adjustBalance, recordTransaction } from "./wallet.js";
 import { mintClientToken } from "./decart.js";
+import { streamStartLimiter } from "./rateLimit.js";
 
 const MAX_SESSION_SECONDS = 1800; // absolute cap regardless of balance, cost-safety net
 
@@ -14,7 +15,7 @@ export const streamRouter = express.Router();
 // underlying Decart session to that exact duration so the client can never
 // stream for longer than what was actually paid for — regardless of what
 // the browser does or doesn't report back to us.
-streamRouter.post("/start", requireAuth, async (req, res) => {
+streamRouter.post("/start", requireAuth, streamStartLimiter, async (req, res) => {
   try {
     const creditsPerSecond = await getCreditsPerSecond();
     const supabase = getSupabaseAdmin();

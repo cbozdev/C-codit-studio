@@ -12,6 +12,7 @@ import { isKorapayConfigured } from "./korapay.js";
 import { streamRouter } from "./streamRoutes.js";
 import { walletRouter, korapayWebhookRouter } from "./walletRoutes.js";
 import { adminRouter } from "./adminRoutes.js";
+import { accountRouter } from "./accountRoutes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3001;
@@ -23,6 +24,10 @@ const CLIENT_ORIGINS = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
 const CLIENT_DIST = path.resolve(__dirname, "../../client/dist");
 
 const app = express();
+// Render terminates TLS and proxies requests to this process — without this,
+// req.ip resolves to Render's proxy address for every request, which would
+// make the rate limiters below bucket all users together as one client.
+app.set("trust proxy", 1);
 app.use(
   cors({
     origin(origin, callback) {
@@ -89,6 +94,7 @@ app.get("/api/stream-session", (_req, res) => {
 app.use("/api/stream", streamRouter);
 app.use("/api/wallet", walletRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/account", accountRouter);
 
 // In production the client is pre-built (npm run build) and served directly
 // from this same process/origin — no separate frontend host needed. In
