@@ -19,6 +19,7 @@ const authTermsCheckbox = document.getElementById("auth-terms-checkbox");
 
 const appShell = document.getElementById("app-shell");
 const walletBalanceEl = document.getElementById("wallet-balance");
+const walletBalanceTimeEl = document.getElementById("wallet-balance-time");
 const sidebarTopupBtn = document.getElementById("sidebar-topup-btn");
 const adminLink = document.getElementById("admin-link");
 const signOutBtn = document.getElementById("sign-out-btn");
@@ -103,12 +104,14 @@ const copyObsUrlBtn = document.getElementById("copy-obs-url");
 const obsLiveBadge = document.getElementById("obs-live-badge");
 
 const dashBalance = document.getElementById("dash-balance");
+const dashBalanceTimeEl = document.getElementById("dash-balance-time");
 const dashStreamedWeek = document.getElementById("dash-streamed-week");
 const dashCreditsUsed = document.getElementById("dash-credits-used");
 const dashSessions = document.getElementById("dash-sessions");
 const dashSessionsTableBody = document.querySelector("#dash-sessions-table tbody");
 
 const walletCurrentBalance = document.getElementById("wallet-current-balance");
+const walletCurrentBalanceTimeEl = document.getElementById("wallet-current-balance-time");
 const walletTotalToppedUp = document.getElementById("wallet-total-topped-up");
 const walletCreditsPurchased = document.getElementById("wallet-credits-purchased");
 const recentTopupsTableBody = document.querySelector("#recent-topups-table tbody");
@@ -169,6 +172,15 @@ function formatDuration(ms) {
   const m = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
   const s = String(totalSeconds % 60).padStart(2, "0");
   return `${m}:${s}`;
+}
+
+/** "~12 min streaming left" / "~45 sec streaming left" from a credit balance. */
+function formatTimeLeft(credits, creditsPerSecond) {
+  const totalSeconds = Math.floor(Number(credits || 0) / creditsPerSecond);
+  if (totalSeconds < 60) return `≈ ${totalSeconds} sec streaming left`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds === 0 ? `≈ ${minutes} min streaming left` : `≈ ${minutes} min ${seconds} sec streaming left`;
 }
 
 // ---------- Auth ----------
@@ -278,7 +290,11 @@ async function refreshWallet() {
   try {
     const res = await fetch(apiUrl("/api/wallet"), { headers: { Authorization: `Bearer ${accessToken}` } });
     const body = await res.json();
-    if (res.ok) walletBalanceEl.textContent = body.balanceCredits;
+    if (res.ok) {
+      walletBalanceEl.textContent = body.balanceCredits;
+      const rate = await getCachedCreditsPerSecond();
+      walletBalanceTimeEl.textContent = formatTimeLeft(body.balanceCredits, rate);
+    }
   } catch (err) {
     console.warn("Could not refresh wallet", err);
   }
@@ -344,6 +360,7 @@ async function loadDashboard() {
   ]);
 
   dashBalance.textContent = wallet?.balance_credits ?? 0;
+  dashBalanceTimeEl.textContent = formatTimeLeft(wallet?.balance_credits, creditsPerSecond);
 
   const usageTx = (transactions || []).filter((t) => t.type === "stream_usage" && t.status === "completed");
   const totalCreditsUsed = usageTx.reduce((sum, t) => sum + Math.abs(t.credits), 0);
@@ -426,7 +443,7 @@ packListEl.addEventListener("click", async (e) => {
 
 async function loadWalletPanel() {
   if (!currentUser) return;
-  const [{ data: wallet }, { data: topups }] = await Promise.all([
+  const [{ data: wallet }, { data: topups }, rate] = await Promise.all([
     supabase.from("wallets").select("balance_credits").eq("user_id", currentUser.id).single(),
     supabase
       .from("transactions")
@@ -435,9 +452,11 @@ async function loadWalletPanel() {
       .eq("type", "topup")
       .order("created_at", { ascending: false })
       .limit(50),
+    getCachedCreditsPerSecond(),
   ]);
 
   walletCurrentBalance.textContent = wallet?.balance_credits ?? 0;
+  walletCurrentBalanceTimeEl.textContent = formatTimeLeft(wallet?.balance_credits, rate);
 
   const completed = (topups || []).filter((t) => t.status === "completed");
   const totalToppedUp = completed.reduce((sum, t) => sum + (t.amount_ngn || 0), 0);
@@ -877,9 +896,11 @@ async function startStreaming() {
     pendingSubscribeToken = e.detail.subscribeToken;
     publishWhenReady();
   });
-  instance.addEventListener("balance", (e) => {
+  instance.addEventListener("balance", async (e) => {
     if (myGeneration !== aiEffectsGeneration) return;
     walletBalanceEl.textContent = e.detail.balance;
+    const rate = await getCachedCreditsPerSecond();
+    walletBalanceTimeEl.textContent = formatTimeLeft(e.detail.balance, rate);
   });
   instance.addEventListener("billed", (e) => {
     if (myGeneration !== aiEffectsGeneration) return;
