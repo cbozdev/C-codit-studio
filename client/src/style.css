@@ -625,6 +625,30 @@ input[type="range"] {
   color: var(--danger);
 }
 
+.connection-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.connection-check .hint-inline {
+  font-size: 12px;
+}
+
+.connection-check .quality-good {
+  color: var(--success);
+}
+
+.connection-check .quality-fair {
+  color: var(--accent);
+}
+
+.connection-check .quality-poor,
+.connection-check .quality-critical {
+  color: var(--danger);
+}
+
 /* ---------- Sidebar ---------- */
 
 .controls-side {

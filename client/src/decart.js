@@ -9,6 +9,19 @@ export function getRealtimeModel() {
 }
 
 /**
+ * Runs the SDK's built-in network preflight: gathers ICE candidates against
+ * public STUN servers to see whether this network allows direct UDP (vs.
+ * falling back to a relay, which adds real latency) and measures round-trip
+ * time. This is entirely local — no Decart backend call, no billed session,
+ * no API key needed — so it's safe to expose for free before a user spends
+ * credits on a stream that's going to lag regardless of what we build.
+ */
+export async function checkConnection() {
+  const client = createDecartClient({ apiKey: "preflight" });
+  return client.checkConnectivity();
+}
+
+/**
  * Wraps the Decart Lucy 2.5 realtime SDK: fetches a short-lived client token
  * from our own backend (the permanent DECART_API_KEY never reaches the
  * browser), then streams the local camera through Lucy 2.5 and exposes the

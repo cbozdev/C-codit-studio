@@ -1,6 +1,6 @@
 import "./style.css";
 import { isWebRTCSupported, listDevices, getLocalStream, stopStream } from "./media.js";
-import { DecartEffects, getRealtimeModel } from "./decart.js";
+import { DecartEffects, getRealtimeModel, checkConnection } from "./decart.js";
 import { apiUrl } from "./api.js";
 import { supabase, isSupabaseConfigured } from "./supabaseClient.js";
 
@@ -67,6 +67,32 @@ const aiImageRemoveBtn = document.getElementById("ai-image-remove");
 
 const streamToggleBtn = document.getElementById("stream-toggle-btn");
 const streamStatus = document.getElementById("stream-status");
+
+const testConnectionBtn = document.getElementById("test-connection-btn");
+const connectionStatusEl = document.getElementById("connection-status");
+
+const QUALITY_LABELS = { good: "Good", fair: "Fair", poor: "Poor", critical: "No connectivity" };
+const TRANSPORT_LABELS = { udp: "direct connection", relay: "relayed — adds latency", failed: "no path found" };
+
+testConnectionBtn?.addEventListener("click", async () => {
+  testConnectionBtn.disabled = true;
+  connectionStatusEl.className = "hint-inline";
+  connectionStatusEl.textContent = "Testing…";
+  try {
+    const report = await checkConnection();
+    const { quality, metrics, reasons } = report;
+    const parts = [QUALITY_LABELS[quality] || quality, TRANSPORT_LABELS[metrics.transport] || metrics.transport];
+    if (metrics.rttMs != null) parts.push(`~${metrics.rttMs}ms RTT`);
+    connectionStatusEl.textContent = parts.join(" · ");
+    connectionStatusEl.className = `hint-inline quality-${quality}`;
+    connectionStatusEl.title = reasons.join(" ");
+  } catch (err) {
+    connectionStatusEl.textContent = "Could not run the test: " + err.message;
+    connectionStatusEl.className = "hint-inline quality-poor";
+  } finally {
+    testConnectionBtn.disabled = false;
+  }
+});
 
 const sessionStatusEl = document.getElementById("session-status");
 const sessionDurationEl = document.getElementById("session-duration");
