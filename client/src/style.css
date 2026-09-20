@@ -989,6 +989,10 @@ input[type="range"] {
   min-height: 100dvh;
 }
 
+.admin-shell[hidden] {
+  display: none;
+}
+
 .admin-sidebar {
   width: 220px;
   flex-shrink: 0;
