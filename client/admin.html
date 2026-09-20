@@ -134,7 +134,10 @@
 
             <section class="admin-panel" data-panel="users" hidden>
               <div class="side-card">
-                <h3>Users</h3>
+                <div class="side-card-header-row">
+                  <h3>Users</h3>
+                  <input type="search" id="users-search" class="table-search" placeholder="Search by email…" />
+                </div>
                 <div class="table-wrap">
                   <table class="admin-table" id="users-table">
                     <thead><tr><th>Email</th><th>Role</th><th>Balance</th><th>Joined</th><th></th></tr></thead>

@@ -32,6 +32,8 @@ let adjustTargetUserId = null;
 const usersTableBody = document.querySelector("#users-table tbody");
 const transactionsTableBody = document.querySelector("#transactions-table tbody");
 const recentTableBody = document.querySelector("#recent-table tbody");
+const usersSearchInput = document.getElementById("users-search");
+let allUsers = [];
 
 const adminNav = document.getElementById("admin-nav");
 const panelTitle = document.getElementById("panel-title");
@@ -165,7 +167,11 @@ async function loadPacks() {
     packStatus.classList.add("status-error");
     return;
   }
-  packs.forEach((pack) => packListEl.appendChild(packRow(pack)));
+  if (packs.length === 0) {
+    packListEl.innerHTML = '<p class="hint">No packs yet — add one below.</p>';
+  } else {
+    packs.forEach((pack) => packListEl.appendChild(packRow(pack)));
+  }
   statPacks.textContent = packs.filter((p) => p.active).length;
 }
 
@@ -214,16 +220,13 @@ newPackForm.addEventListener("submit", async (e) => {
   }
 });
 
-async function loadOverview() {
-  const res = await authedFetch("/api/admin/overview");
-  const body = await res.json();
-  if (!res.ok) return;
-
-  usersTableBody.innerHTML = body.users
-    .map((u) => {
-      const balance = u.wallets?.[0]?.balance_credits ?? u.wallets?.balance_credits ?? "—";
-      const email = escapeHtml(u.email);
-      return `
+function renderUsersTable(users) {
+  usersTableBody.innerHTML =
+    users
+      .map((u) => {
+        const balance = u.wallets?.[0]?.balance_credits ?? u.wallets?.balance_credits ?? "—";
+        const email = escapeHtml(u.email);
+        return `
       <tr>
         <td>${email}</td>
         <td>${escapeHtml(u.role)}</td>
@@ -231,11 +234,29 @@ async function loadOverview() {
         <td>${new Date(u.created_at).toLocaleDateString()}</td>
         <td><button type="button" class="btn btn-ghost btn-sm" data-adjust-id="${u.id}" data-adjust-email="${email}">Adjust</button></td>
       </tr>`;
-    })
-    .join("");
+      })
+      .join("") || '<tr><td colspan="5" class="hint">No matching users.</td></tr>';
+}
 
-  transactionsTableBody.innerHTML = renderTransactionRows(body.transactions);
-  recentTableBody.innerHTML = renderTransactionRows(body.transactions.slice(0, 10));
+usersSearchInput.addEventListener("input", () => {
+  const query = usersSearchInput.value.trim().toLowerCase();
+  const filtered = query ? allUsers.filter((u) => u.email?.toLowerCase().includes(query)) : allUsers;
+  renderUsersTable(filtered);
+});
+
+async function loadOverview() {
+  const res = await authedFetch("/api/admin/overview");
+  const body = await res.json();
+  if (!res.ok) return;
+
+  allUsers = body.users;
+  renderUsersTable(allUsers);
+
+  transactionsTableBody.innerHTML =
+    renderTransactionRows(body.transactions) || '<tr><td colspan="5" class="hint">No transactions yet.</td></tr>';
+  recentTableBody.innerHTML =
+    renderTransactionRows(body.transactions.slice(0, 10)) ||
+    '<tr><td colspan="5" class="hint">No activity yet.</td></tr>';
 
   const revenue = body.transactions
     .filter((t) => t.type === "topup" && t.status === "completed")
@@ -288,6 +309,10 @@ adjustForm.addEventListener("submit", async (e) => {
   if (!Number.isInteger(amount) || amount === 0) {
     adjustStatus.textContent = "Enter a non-zero whole number.";
     adjustStatus.classList.add("status-error");
+    return;
+  }
+  const verb = amount > 0 ? "credit" : "debit";
+  if (!window.confirm(`${verb === "credit" ? "Credit" : "Debit"} ${Math.abs(amount)} credits ${verb === "credit" ? "to" : "from"} ${adjustUserEmail.textContent}?`)) {
     return;
   }
   adjustStatus.textContent = "Applying...";
