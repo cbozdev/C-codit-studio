@@ -194,10 +194,14 @@ export class DecartViewer extends EventTarget {
     return Boolean(this.subscriber);
   }
 
-  async start(subscribeToken) {
+  async start(subscribeToken, userId) {
     if (this.subscriber) await this.stop();
 
-    const tokenRes = await fetch(apiUrl("/api/decart-token"), { method: "POST" });
+    const tokenRes = await fetch(apiUrl("/api/decart-token"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
     if (!tokenRes.ok) {
       const body = await tokenRes.json().catch(() => ({}));
       throw new Error(body.error || "Could not get a Decart access token from the server.");

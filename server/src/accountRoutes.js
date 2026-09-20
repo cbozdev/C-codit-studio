@@ -1,7 +1,7 @@
 import express from "express";
 import { requireAuth } from "./authMiddleware.js";
 import { getSupabaseAdmin } from "./supabase.js";
-import { getCurrentSession, clearCurrentSession } from "./streamSession.js";
+import { getUserSession, clearUserSession } from "./streamSession.js";
 import { accountDeleteLimiter } from "./rateLimit.js";
 
 export const accountRouter = express.Router();
@@ -16,10 +16,9 @@ accountRouter.delete("/", requireAuth, accountDeleteLimiter, async (req, res) =>
     const { error } = await supabase.auth.admin.deleteUser(req.user.id);
     if (error) throw error;
 
-    // If this user happened to be the one currently registered as the live
-    // OBS-visible session, clear it so a deleted account's stream doesn't
-    // keep dangling around as "live" for viewers.
-    if (getCurrentSession().active) clearCurrentSession();
+    // Clear this user's OBS-visible session, if any, so a deleted account's
+    // stream doesn't keep dangling around as "live" for its own viewers.
+    if (getUserSession(req.user.id).active) clearUserSession(req.user.id);
 
     res.json({ ok: true });
   } catch (err) {

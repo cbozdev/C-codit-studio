@@ -7,6 +7,12 @@ const POLL_INTERVAL_MS = 2000;
 const outputVideo = document.getElementById("output-video");
 const placeholder = document.getElementById("placeholder");
 
+// Each Studio user's stream is tracked separately on the server (keyed by
+// user id), since two people could be streaming at once — this OBS output
+// only has no login of its own, so it needs that id from its own URL
+// (copied from the Studio's "OBS setup" card) to know whose stream to watch.
+const studioUserId = new URLSearchParams(window.location.search).get("u");
+
 let viewer = null;
 let currentSubscribeToken = null;
 
@@ -40,7 +46,7 @@ async function startViewer(subscribeToken) {
   });
 
   try {
-    await instance.start(subscribeToken);
+    await instance.start(subscribeToken, studioUserId);
     if (currentSubscribeToken !== subscribeToken) {
       // A newer session showed up while this one was still connecting.
       instance.stop();
@@ -55,7 +61,11 @@ async function startViewer(subscribeToken) {
 
 async function poll() {
   try {
-    const res = await fetch(apiUrl("/api/stream-session"));
+    if (!studioUserId) {
+      setWaiting("This link is missing its stream ID — copy the OBS URL again from the Studio's Start Stream panel.");
+      return;
+    }
+    const res = await fetch(apiUrl(`/api/stream-session?u=${encodeURIComponent(studioUserId)}`));
     const session = await res.json();
 
     if (session.active && session.subscribeToken) {

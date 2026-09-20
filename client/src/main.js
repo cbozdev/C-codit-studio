@@ -331,6 +331,7 @@ async function showAuthedUI(session) {
   currentUser = session.user;
   authScreen.hidden = true;
   appShell.hidden = false;
+  obsUrlInput.value = `${window.location.origin}/obs.html?u=${currentUser.id}`;
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
   adminLink.hidden = profile?.role !== "admin";
@@ -362,6 +363,14 @@ async function refreshWallet() {
   }
 }
 
+// Events that carry a session but shouldn't re-run the "just signed in"
+// setup — without this exclusion, a silent background TOKEN_REFRESHED
+// (Supabase does this periodically for any open tab) or a USER_UPDATED
+// (e.g. changing your password in Settings) would call showAuthedUI() again,
+// which resets the active panel back to Dashboard — yanking a user off the
+// Start Stream panel mid-session, or off Settings right after they used it.
+const AUTH_EVENTS_KEEPING_CURRENT_VIEW = new Set(["TOKEN_REFRESHED", "USER_UPDATED"]);
+
 if (isSupabaseConfigured) {
   supabase.auth.onAuthStateChange((event, session) => {
     // Clicking the emailed reset link signs the user into a temporary
@@ -372,6 +381,11 @@ if (isSupabaseConfigured) {
       authScreen.hidden = false;
       appShell.hidden = true;
       setAuthMode("recovery");
+      return;
+    }
+    if (AUTH_EVENTS_KEEPING_CURRENT_VIEW.has(event) && session) {
+      accessToken = session.access_token;
+      currentUser = session.user;
       return;
     }
     if (session) showAuthedUI(session);
@@ -657,7 +671,9 @@ deleteAccountBtn.addEventListener("click", async () => {
 
 // ---------- OBS URL ----------
 
-obsUrlInput.value = `${window.location.origin}/obs.html`;
+// Set once currentUser is known (inside showAuthedUI) — the OBS output page
+// has no login of its own, so it needs this user's id in the URL itself to
+// know whose stream to poll for (see server/src/streamSession.js).
 copyObsUrlBtn.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(obsUrlInput.value);
@@ -891,7 +907,7 @@ async function publishStreamSession(subscribeToken) {
   try {
     await fetch(apiUrl("/api/stream-session"), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ subscribeToken, model: "lucy-2.5" }),
     });
   } catch (err) {
@@ -900,7 +916,11 @@ async function publishStreamSession(subscribeToken) {
 }
 
 function clearStreamSession() {
-  fetch(apiUrl("/api/stream-session"), { method: "DELETE", keepalive: true }).catch(() => {});
+  fetch(apiUrl("/api/stream-session"), {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    keepalive: true,
+  }).catch(() => {});
 }
 
 window.addEventListener("beforeunload", clearStreamSession);

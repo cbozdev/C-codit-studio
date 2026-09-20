@@ -6,13 +6,14 @@ import express from "express";
 import cors from "cors";
 
 import { mintClientToken, isDecartConfigured } from "./decart.js";
-import { setCurrentSession, clearCurrentSession, getCurrentSession } from "./streamSession.js";
+import { setUserSession, clearUserSession, getUserSession } from "./streamSession.js";
 import { isSupabaseConfigured } from "./supabase.js";
 import { isKorapayConfigured } from "./korapay.js";
 import { streamRouter } from "./streamRoutes.js";
 import { walletRouter, korapayWebhookRouter } from "./walletRoutes.js";
 import { adminRouter } from "./adminRoutes.js";
 import { accountRouter } from "./accountRoutes.js";
+import { requireAuth } from "./authMiddleware.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3001;
@@ -53,12 +54,15 @@ app.get("/api/health", (_req, res) => {
 // Mints a short-lived Decart client token. Only used by the OBS output page
 // now (a pure viewer, subscribing to an already-running producer session) —
 // the Studio page gets its token from POST /api/stream/start instead, which
-// ties minting to an authenticated, billed session. Gating this on "a
-// session is currently live" closes off the endpoint as a free way to mint
-// Decart credentials against our account with no session backing them.
+// ties minting to an authenticated, billed session. Gating this on "that
+// specific studio user has a session currently live" closes off the endpoint
+// as a free way to mint Decart credentials with no session backing them.
+// The OBS browser process has no login of its own, so the Studio user's id
+// travels in the OBS URL itself (?u=...) instead of an Authorization header.
 app.post("/api/decart-token", async (req, res) => {
   try {
-    if (!getCurrentSession().active) {
+    const userId = req.body?.userId;
+    if (!userId || !getUserSession(userId).active) {
       return res.status(403).json({ error: "No stream is currently live." });
     }
     const token = await mintClientToken(req.headers.origin);
@@ -70,25 +74,28 @@ app.post("/api/decart-token", async (req, res) => {
 });
 
 // The Studio page (producer) registers its live session's subscribeToken
-// here right after connecting; the OBS output page (viewer, a separate
-// browser process with no access to the Studio page's camera or JS state)
-// polls this to find out what to subscribe to.
-app.post("/api/stream-session", (req, res) => {
+// here right after connecting, keyed by its own (authenticated) user id; the
+// OBS output page (viewer, a separate browser process with no access to the
+// Studio page's camera, JS state, or login) polls this by that same id to
+// find out what to subscribe to.
+app.post("/api/stream-session", requireAuth, (req, res) => {
   const { subscribeToken, model } = req.body || {};
   if (!subscribeToken) {
     return res.status(400).json({ error: "subscribeToken is required" });
   }
-  setCurrentSession({ subscribeToken, model });
+  setUserSession(req.user.id, { subscribeToken, model });
   res.json({ ok: true });
 });
 
-app.delete("/api/stream-session", (_req, res) => {
-  clearCurrentSession();
+app.delete("/api/stream-session", requireAuth, (req, res) => {
+  clearUserSession(req.user.id);
   res.json({ ok: true });
 });
 
-app.get("/api/stream-session", (_req, res) => {
-  res.json(getCurrentSession());
+app.get("/api/stream-session", (req, res) => {
+  const userId = req.query.u;
+  if (!userId) return res.json({ active: false });
+  res.json(getUserSession(userId));
 });
 
 app.use("/api/stream", streamRouter);

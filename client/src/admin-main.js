@@ -61,6 +61,14 @@ const statCost = document.getElementById("stat-cost");
 const statProfit = document.getElementById("stat-profit");
 const statMargin = document.getElementById("stat-margin");
 
+// Every field rendered via innerHTML that ultimately traces back to a
+// signup email (attacker-influenced, not admin-controlled) needs escaping —
+// without it, a crafted email string could execute script in the admin's
+// own session the moment they open the Users tab.
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function renderTransactionRows(transactions) {
   return transactions
     .map(
@@ -214,13 +222,14 @@ async function loadOverview() {
   usersTableBody.innerHTML = body.users
     .map((u) => {
       const balance = u.wallets?.[0]?.balance_credits ?? u.wallets?.balance_credits ?? "—";
+      const email = escapeHtml(u.email);
       return `
       <tr>
-        <td>${u.email}</td>
-        <td>${u.role}</td>
+        <td>${email}</td>
+        <td>${escapeHtml(u.role)}</td>
         <td>${balance}</td>
         <td>${new Date(u.created_at).toLocaleDateString()}</td>
-        <td><button type="button" class="btn btn-ghost btn-sm" data-adjust-id="${u.id}" data-adjust-email="${u.email}">Adjust</button></td>
+        <td><button type="button" class="btn btn-ghost btn-sm" data-adjust-id="${u.id}" data-adjust-email="${email}">Adjust</button></td>
       </tr>`;
     })
     .join("");
