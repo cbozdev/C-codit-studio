@@ -18,7 +18,7 @@ export function getRealtimeModel() {
  */
 export async function checkConnection() {
   const client = createDecartClient({ apiKey: "preflight" });
-  return client.checkConnectivity();
+  return client.realtime.checkConnectivity();
 }
 
 /**
